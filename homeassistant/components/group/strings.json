@@ -7,6 +7,7 @@
         "description": "Groups allow you to create a new entity that represents multiple entities of the same type.",
         "menu_options": {
           "binary_sensor": "Binary sensor group",
+          "climate": "Climate group",
           "cover": "Cover group",
           "event": "Event group",
           "fan": "Fan group",

@@ -21,6 +21,9 @@ HAP-python==4.9.1
 # homeassistant.components.tasmota
 HATasmota==0.8.0
 
+# homeassistant.components.hue_ble
+HueBLE==1.0.5
+
 # homeassistant.components.doods
 # homeassistant.components.generic
 # homeassistant.components.image_upload

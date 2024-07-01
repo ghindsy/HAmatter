@@ -429,6 +429,7 @@ FLOWS = {
         "progettihwsw",
         "prosegur",
         "proximity",
+        "proxmoxve",
         "prusalink",
         "ps4",
         "pure_energie",

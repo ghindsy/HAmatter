@@ -77,6 +77,7 @@ FLOWS = {
         "baf",
         "balboa",
         "bang_olufsen",
+        "bedrock_agent",
         "blebox",
         "blink",
         "blue_current",

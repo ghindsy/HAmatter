@@ -63,7 +63,6 @@ async def async_attach_trigger(
 ) -> CALLBACK_TYPE:
     """Listen for state changes based on configuration."""
     trigger_data = trigger_info["trigger_data"]
-    variables = trigger_info["variables"] or {}
     entities: dict[str, CALLBACK_TYPE] = {}
     removes: list[CALLBACK_TYPE] = []
     job = HassJob(action, f"time trigger {trigger_info}")
@@ -179,12 +178,11 @@ async def async_attach_trigger(
     to_track: list[str] = []
 
     for at_time in config[CONF_AT]:
-        # template.attach(hass, at_time)
-        # render = template.render_complex(at_time, variables, limited=True)
-        # at_time = _TIME_AT_SCHEMA(render)
         if isinstance(at_time, template.Template):
             template.attach(hass, at_time)
-            render = template.render_complex(at_time, variables, limited=True)
+            render = template.render_complex(
+                at_time, trigger_info["variables"], limited=True
+            )
             try:
                 at_time = _TIME_AT_SCHEMA(render)
             except vol.Invalid as exc:

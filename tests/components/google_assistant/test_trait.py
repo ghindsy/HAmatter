@@ -60,6 +60,7 @@ from homeassistant.const import (
     ATTR_MODE,
     ATTR_SUPPORTED_FEATURES,
     ATTR_TEMPERATURE,
+    BASE_PLATFORMS,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     STATE_ALARM_ARMED_AWAY,
@@ -81,6 +82,7 @@ from homeassistant.core import (
     HomeAssistant,
     State,
 )
+from homeassistant.helpers import translation
 from homeassistant.util import color, dt as dt_util
 from homeassistant.util.unit_conversion import TemperatureConverter
 
@@ -99,6 +101,19 @@ PIN_CONFIG = MockConfig(secure_devices_pin="1234")
 PIN_DATA = helpers.RequestData(
     PIN_CONFIG, "test-agent", const.SOURCE_CLOUD, REQ_ID, None
 )
+
+
+@pytest.fixture(autouse=True)
+async def _load_translations(hass: HomeAssistant) -> None:
+    """Load translation needed for traits."""
+
+    integrations = set(BASE_PLATFORMS)
+    integrations.add(input_select.DOMAIN)
+    integrations.add(const.DOMAIN)
+
+    hass.config.top_level_components |= integrations
+    for language in BASIC_CONFIG.languages:
+        await translation.async_load_integrations(hass, integrations, language)
 
 
 @pytest.mark.parametrize(
@@ -962,7 +977,7 @@ async def test_light_modes(hass: HomeAssistant) -> None:
         "availableModes": [
             {
                 "name": "effect",
-                "name_values": [{"name_synonym": ["effect"], "lang": "en"}],
+                "name_values": [{"name_synonym": ["Effect"], "lang": "en"}],
                 "settings": [
                     {
                         "setting_name": "random",
@@ -1752,15 +1767,11 @@ async def test_arm_disarm_arm_away(hass: HomeAssistant) -> None:
             "levels": [
                 {
                     "level_name": "armed_home",
-                    "level_values": [
-                        {"level_synonym": ["armed home", "home"], "lang": "en"}
-                    ],
+                    "level_values": [{"level_synonym": ["Armed home"], "lang": "en"}],
                 },
                 {
                     "level_name": "armed_away",
-                    "level_values": [
-                        {"level_synonym": ["armed away", "away"], "lang": "en"}
-                    ],
+                    "level_values": [{"level_synonym": ["Armed away"], "lang": "en"}],
                 },
             ],
             "ordered": True,
@@ -1918,7 +1929,7 @@ async def test_arm_disarm_disarm(hass: HomeAssistant) -> None:
                     "level_name": "armed_home",
                     "level_values": [
                         {
-                            "level_synonym": ["armed home", "home"],
+                            "level_synonym": ["Armed home"],
                             "lang": "en",
                         }
                     ],
@@ -1927,14 +1938,14 @@ async def test_arm_disarm_disarm(hass: HomeAssistant) -> None:
                     "level_name": "armed_away",
                     "level_values": [
                         {
-                            "level_synonym": ["armed away", "away"],
+                            "level_synonym": ["Armed away"],
                             "lang": "en",
                         }
                     ],
                 },
                 {
                     "level_name": "triggered",
-                    "level_values": [{"level_synonym": ["triggered"], "lang": "en"}],
+                    "level_values": [{"level_synonym": ["Triggered"], "lang": "en"}],
                 },
             ],
             "ordered": True,
@@ -2115,7 +2126,7 @@ async def test_fan_speed_without_percentage_step(hass: HomeAssistant) -> None:
     # If a fan state has (temporary) no percentage_step attribute return 1 available
     assert trt.query_attributes() == {
         "currentFanSpeedPercent": 0,
-        "currentFanSpeedSetting": "1/5",
+        "currentFanSpeedSetting": "1_5",
     }
 
 
@@ -2125,49 +2136,49 @@ async def test_fan_speed_without_percentage_step(hass: HomeAssistant) -> None:
         (
             33,
             1.0,
-            "2/5",
+            "2_5",
             [
-                ["Low", "Min", "Slow", "1"],
-                ["Medium Low", "2"],
-                ["Medium", "3"],
-                ["Medium High", "4"],
-                ["High", "Max", "Fast", "5"],
+                ["Low"],
+                ["Medium Low"],
+                ["Medium"],
+                ["Medium High"],
+                ["High"],
             ],
             40,
         ),
         (
             40,
             1.0,
-            "2/5",
+            "2_5",
             [
-                ["Low", "Min", "Slow", "1"],
-                ["Medium Low", "2"],
-                ["Medium", "3"],
-                ["Medium High", "4"],
-                ["High", "Max", "Fast", "5"],
+                ["Low"],
+                ["Medium Low"],
+                ["Medium"],
+                ["Medium High"],
+                ["High"],
             ],
             40,
         ),
         (
             33,
             100 / 3,
-            "1/3",
+            "1_3",
             [
-                ["Low", "Min", "Slow", "1"],
-                ["Medium", "2"],
-                ["High", "Max", "Fast", "3"],
+                ["Low"],
+                ["Medium"],
+                ["High"],
             ],
             33,
         ),
         (
             20,
             100 / 4,
-            "1/4",
+            "1_4",
             [
-                ["Low", "Min", "Slow", "1"],
-                ["Medium Low", "2"],
-                ["Medium High", "3"],
-                ["High", "Max", "Fast", "4"],
+                ["Low"],
+                ["Medium Low"],
+                ["Medium High"],
+                ["High"],
             ],
             25,
         ),
@@ -2207,7 +2218,7 @@ async def test_fan_speed_ordered(
             "ordered": True,
             "speeds": [
                 {
-                    "speed_name": f"{idx+1}/{len(speeds)}",
+                    "speed_name": f"{idx+1}_{len(speeds)}",
                     "speed_values": [{"lang": "en", "speed_synonym": x}],
                 }
                 for idx, x in enumerate(speeds)
@@ -2309,19 +2320,19 @@ async def test_climate_fan_speed(hass: HomeAssistant) -> None:
             "speeds": [
                 {
                     "speed_name": "auto",
-                    "speed_values": [{"speed_synonym": ["auto"], "lang": "en"}],
+                    "speed_values": [{"speed_synonym": ["Auto"], "lang": "en"}],
                 },
                 {
                     "speed_name": "low",
-                    "speed_values": [{"speed_synonym": ["low"], "lang": "en"}],
+                    "speed_values": [{"speed_synonym": ["Low"], "lang": "en"}],
                 },
                 {
                     "speed_name": "medium",
-                    "speed_values": [{"speed_synonym": ["medium"], "lang": "en"}],
+                    "speed_values": [{"speed_synonym": ["Medium"], "lang": "en"}],
                 },
                 {
                     "speed_name": "high",
-                    "speed_values": [{"speed_synonym": ["high"], "lang": "en"}],
+                    "speed_values": [{"speed_synonym": ["High"], "lang": "en"}],
                 },
             ],
         },
@@ -2535,10 +2546,10 @@ async def test_modes_input_select(hass: HomeAssistant) -> None:
     assert attribs == {
         "availableModes": [
             {
-                "name": "option",
+                "name": "state",
                 "name_values": [
                     {
-                        "name_synonym": ["option", "setting", "mode", "value"],
+                        "name_synonym": ["Input select"],
                         "lang": "en",
                     }
                 ],
@@ -2562,13 +2573,13 @@ async def test_modes_input_select(hass: HomeAssistant) -> None:
     }
 
     assert trt.query_attributes() == {
-        "currentModeSettings": {"option": "abc"},
+        "currentModeSettings": {"state": "abc"},
         "on": True,
     }
 
     assert trt.can_execute(
         trait.COMMAND_MODES,
-        params={"updateModeSettings": {"option": "xyz"}},
+        params={"updateModeSettings": {"state": "xyz"}},
     )
 
     calls = async_mock_service(
@@ -2577,7 +2588,7 @@ async def test_modes_input_select(hass: HomeAssistant) -> None:
     await trt.execute(
         trait.COMMAND_MODES,
         BASIC_DATA,
-        {"updateModeSettings": {"option": "xyz"}},
+        {"updateModeSettings": {"state": "xyz"}},
         {},
     )
 
@@ -2611,10 +2622,10 @@ async def test_modes_select(hass: HomeAssistant) -> None:
     assert attribs == {
         "availableModes": [
             {
-                "name": "option",
+                "name": "state",
                 "name_values": [
                     {
-                        "name_synonym": ["option", "setting", "mode", "value"],
+                        "name_synonym": ["Select"],
                         "lang": "en",
                     }
                 ],
@@ -2638,20 +2649,20 @@ async def test_modes_select(hass: HomeAssistant) -> None:
     }
 
     assert trt.query_attributes() == {
-        "currentModeSettings": {"option": "abc"},
+        "currentModeSettings": {"state": "abc"},
         "on": True,
     }
 
     assert trt.can_execute(
         trait.COMMAND_MODES,
-        params={"updateModeSettings": {"option": "xyz"}},
+        params={"updateModeSettings": {"state": "xyz"}},
     )
 
     calls = async_mock_service(hass, select.DOMAIN, select.SERVICE_SELECT_OPTION)
     await trt.execute(
         trait.COMMAND_MODES,
         BASIC_DATA,
-        {"updateModeSettings": {"option": "xyz"}},
+        {"updateModeSettings": {"state": "xyz"}},
         {},
     )
 
@@ -2692,21 +2703,21 @@ async def test_modes_humidifier(hass: HomeAssistant) -> None:
         "availableModes": [
             {
                 "name": "mode",
-                "name_values": [{"name_synonym": ["mode"], "lang": "en"}],
+                "name_values": [{"name_synonym": ["Mode"], "lang": "en"}],
                 "settings": [
                     {
                         "setting_name": "normal",
                         "setting_values": [
-                            {"setting_synonym": ["normal"], "lang": "en"}
+                            {"setting_synonym": ["Normal"], "lang": "en"}
                         ],
                     },
                     {
                         "setting_name": "auto",
-                        "setting_values": [{"setting_synonym": ["auto"], "lang": "en"}],
+                        "setting_values": [{"setting_synonym": ["Auto"], "lang": "en"}],
                     },
                     {
                         "setting_name": "away",
-                        "setting_values": [{"setting_synonym": ["away"], "lang": "en"}],
+                        "setting_values": [{"setting_synonym": ["Away"], "lang": "en"}],
                     },
                 ],
                 "ordered": False,
@@ -2767,22 +2778,22 @@ async def test_modes_water_heater(hass: HomeAssistant) -> None:
     assert attribs == {
         "availableModes": [
             {
-                "name": "operation mode",
-                "name_values": [{"name_synonym": ["operation mode"], "lang": "en"}],
+                "name": "operation_mode",
+                "name_values": [{"name_synonym": ["Operation mode"], "lang": "en"}],
                 "settings": [
                     {
                         "setting_name": "eco",
-                        "setting_values": [{"setting_synonym": ["eco"], "lang": "en"}],
+                        "setting_values": [{"setting_synonym": ["Eco"], "lang": "en"}],
                     },
                     {
                         "setting_name": "heat_pump",
                         "setting_values": [
-                            {"setting_synonym": ["heat_pump"], "lang": "en"}
+                            {"setting_synonym": ["Heat Pump"], "lang": "en"}
                         ],
                     },
                     {
                         "setting_name": "gas",
-                        "setting_values": [{"setting_synonym": ["gas"], "lang": "en"}],
+                        "setting_values": [{"setting_synonym": ["Gas"], "lang": "en"}],
                     },
                 ],
                 "ordered": False,
@@ -2791,12 +2802,12 @@ async def test_modes_water_heater(hass: HomeAssistant) -> None:
     }
 
     assert trt.query_attributes() == {
-        "currentModeSettings": {"operation mode": "heat_pump"},
+        "currentModeSettings": {"operation_mode": "heat_pump"},
         "on": False,
     }
 
     assert trt.can_execute(
-        trait.COMMAND_MODES, params={"updateModeSettings": {"operation mode": "gas"}}
+        trait.COMMAND_MODES, params={"updateModeSettings": {"operation_mode": "gas"}}
     )
 
     calls = async_mock_service(
@@ -2805,7 +2816,7 @@ async def test_modes_water_heater(hass: HomeAssistant) -> None:
     await trt.execute(
         trait.COMMAND_MODES,
         BASIC_DATA,
-        {"updateModeSettings": {"operation mode": "gas"}},
+        {"updateModeSettings": {"operation_mode": "gas"}},
         {},
     )
 
@@ -2843,10 +2854,8 @@ async def test_sound_modes(hass: HomeAssistant) -> None:
     assert attribs == {
         "availableModes": [
             {
-                "name": "sound mode",
-                "name_values": [
-                    {"name_synonym": ["sound mode", "effects"], "lang": "en"}
-                ],
+                "name": "sound_mode",
+                "name_values": [{"name_synonym": ["Sound mode"], "lang": "en"}],
                 "settings": [
                     {
                         "setting_name": "stereo",
@@ -2867,13 +2876,13 @@ async def test_sound_modes(hass: HomeAssistant) -> None:
     }
 
     assert trt.query_attributes() == {
-        "currentModeSettings": {"sound mode": "stereo"},
+        "currentModeSettings": {"sound_mode": "stereo"},
         "on": True,
     }
 
     assert trt.can_execute(
         trait.COMMAND_MODES,
-        params={"updateModeSettings": {"sound mode": "stereo"}},
+        params={"updateModeSettings": {"sound_mode": "stereo"}},
     )
 
     calls = async_mock_service(
@@ -2882,7 +2891,7 @@ async def test_sound_modes(hass: HomeAssistant) -> None:
     await trt.execute(
         trait.COMMAND_MODES,
         BASIC_DATA,
-        {"updateModeSettings": {"sound mode": "stereo"}},
+        {"updateModeSettings": {"sound_mode": "stereo"}},
         {},
     )
 
@@ -2918,10 +2927,8 @@ async def test_preset_modes(hass: HomeAssistant) -> None:
     assert attribs == {
         "availableModes": [
             {
-                "name": "preset mode",
-                "name_values": [
-                    {"name_synonym": ["preset mode", "mode", "preset"], "lang": "en"}
-                ],
+                "name": "preset_mode",
+                "name_values": [{"name_synonym": ["Preset mode"], "lang": "en"}],
                 "settings": [
                     {
                         "setting_name": "auto",
@@ -2940,20 +2947,20 @@ async def test_preset_modes(hass: HomeAssistant) -> None:
     }
 
     assert trt.query_attributes() == {
-        "currentModeSettings": {"preset mode": "auto"},
+        "currentModeSettings": {"preset_mode": "auto"},
         "on": True,
     }
 
     assert trt.can_execute(
         trait.COMMAND_MODES,
-        params={"updateModeSettings": {"preset mode": "auto"}},
+        params={"updateModeSettings": {"preset_mode": "auto"}},
     )
 
     calls = async_mock_service(hass, fan.DOMAIN, fan.SERVICE_SET_PRESET_MODE)
     await trt.execute(
         trait.COMMAND_MODES,
         BASIC_DATA,
-        {"updateModeSettings": {"preset mode": "auto"}},
+        {"updateModeSettings": {"preset_mode": "auto"}},
         {},
     )
 

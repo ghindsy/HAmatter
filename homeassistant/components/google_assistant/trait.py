@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components import (
     alarm_control_panel,
@@ -52,6 +52,7 @@ from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     ATTR_MODE,
+    ATTR_STATE,
     ATTR_SUPPORTED_FEATURES,
     ATTR_TEMPERATURE,
     CAST_APP_ID_HOMEASSISTANT_MEDIA,
@@ -81,8 +82,14 @@ from homeassistant.const import (
     STATE_UNKNOWN,
     UnitOfTemperature,
 )
-from homeassistant.core import DOMAIN as HA_DOMAIN, HomeAssistant
+from homeassistant.core import DOMAIN as HA_DOMAIN, HomeAssistant, State
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.network import get_url
+from homeassistant.helpers.translation import (
+    async_translate_entity_string,
+    async_translation_suffix,
+)
+from homeassistant.helpers.typing import UNDEFINED, UndefinedType
 from homeassistant.util import color as color_util, dt as dt_util
 from homeassistant.util.dt import utcnow
 from homeassistant.util.percentage import (
@@ -94,6 +101,7 @@ from homeassistant.util.unit_conversion import TemperatureConverter
 from .const import (
     CHALLENGE_FAILED_PIN_NEEDED,
     CHALLENGE_PIN_NEEDED,
+    DOMAIN,
     ERR_ALREADY_ARMED,
     ERR_ALREADY_DISARMED,
     ERR_ALREADY_STOPPED,
@@ -103,9 +111,11 @@ from .const import (
     ERR_NOT_SUPPORTED,
     ERR_UNSUPPORTED_INPUT,
     ERR_VALUE_OUT_OF_RANGE,
-    FAN_SPEEDS,
 )
 from .error import ChallengeNeeded, SmartHomeError
+
+if TYPE_CHECKING:
+    from .helpers import AbstractConfig
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -288,7 +298,9 @@ class _Trait(ABC):
     def supported(domain, features, device_class, attributes):
         """Test if state is supported."""
 
-    def __init__(self, hass: HomeAssistant, state, config) -> None:
+    def __init__(
+        self, hass: HomeAssistant, state: State, config: AbstractConfig
+    ) -> None:
         """Initialize a trait for a state."""
         self.hass = hass
         self.state = state
@@ -316,6 +328,53 @@ class _Trait(ABC):
     async def execute(self, command, data, params, challenge):
         """Execute a trait command."""
         raise NotImplementedError
+
+    def _synonyms(
+        self,
+        value: str | UndefinedType = UNDEFINED,
+        attr: str | UndefinedType = UNDEFINED,
+        domain: str | UndefinedType = UNDEFINED,
+        platform: str | None = None,
+        translation_key: str | None = None,
+    ) -> dict[str, list[str]]:
+        entity_registry = er.async_get(self.hass)
+        if domain is UNDEFINED:
+            domain = self.state.domain
+        device_class = self.state.attributes.get(ATTR_DEVICE_CLASS)
+        if entry := entity_registry.async_get(self.state.entity_id):
+            if not platform:
+                platform = entry.platform
+            if not translation_key:
+                translation_key = entry.translation_key
+
+        if value is not UNDEFINED:
+            default = value
+        elif attr is not UNDEFINED:
+            default = attr
+        elif device_class:
+            default = device_class
+        elif platform:
+            default = platform
+        else:
+            default = domain
+
+        suffix = async_translation_suffix(attribute=attr, value=value)
+
+        def _translate(language):
+            result = async_translate_entity_string(
+                self.hass,
+                domain,
+                platform,
+                translation_key,
+                device_class,
+                suffix,
+                language,
+            )
+            if result is None:
+                return default
+            return result
+
+        return {language: [_translate(language)] for language in self.config.languages}
 
 
 @register_trait
@@ -1603,15 +1662,12 @@ class ArmDisArmTrait(_Trait):
         response = {}
         levels = []
         for state in self._supported_states():
-            # level synonyms are generated from state names
-            # 'armed_away' becomes 'armed away' or 'away'
-            level_synonym = [state.replace("_", " ")]
-            if state != STATE_ALARM_TRIGGERED:
-                level_synonym.append(state.split("_")[1])
-
             level = {
                 "level_name": state,
-                "level_values": [{"level_synonym": level_synonym, "lang": "en"}],
+                "level_values": [
+                    {"level_synonym": synonyms, "lang": language}
+                    for language, synonyms in self._synonyms(value=state).items()
+                ],
             }
             levels.append(level)
 
@@ -1668,20 +1724,6 @@ class ArmDisArmTrait(_Trait):
         )
 
 
-def _get_fan_speed(speed_name: str) -> dict[str, Any]:
-    """Return a fan speed synonyms for a speed name."""
-    speed_synonyms = FAN_SPEEDS.get(speed_name, [f"{speed_name}"])
-    return {
-        "speed_name": speed_name,
-        "speed_values": [
-            {
-                "speed_synonym": speed_synonyms,
-                "lang": "en",
-            }
-        ],
-    }
-
-
 @register_trait
 class FanSpeedTrait(_Trait):
     """Trait to control speed of Fan.
@@ -1703,7 +1745,7 @@ class FanSpeedTrait(_Trait):
                 ),
             )
             self._ordered_speed = [
-                f"{speed}/{speed_count}" for speed in range(1, speed_count + 1)
+                f"{speed}_{speed_count}" for speed in range(1, speed_count + 1)
             ]
 
     @staticmethod
@@ -1735,12 +1777,25 @@ class FanSpeedTrait(_Trait):
             )
 
             if self._ordered_speed:
+                speeds = [
+                    {
+                        "speed_name": speed,
+                        "speed_values": [
+                            {"speed_synonym": synonyms, "lang": language}
+                            for language, synonyms in self._synonyms(
+                                value=speed,
+                                domain=fan.DOMAIN,
+                                platform=DOMAIN,
+                                translation_key="speed",
+                            ).items()
+                        ],
+                    }
+                    for speed in self._ordered_speed
+                ]
                 result.update(
                     {
                         "availableFanSpeeds": {
-                            "speeds": [
-                                _get_fan_speed(speed) for speed in self._ordered_speed
-                            ],
+                            "speeds": speeds,
                             "ordered": True,
                         },
                     }
@@ -1748,12 +1803,18 @@ class FanSpeedTrait(_Trait):
 
         elif domain == climate.DOMAIN:
             modes = self.state.attributes.get(climate.ATTR_FAN_MODES) or []
-            for mode in modes:
-                speed = {
+            speeds = [
+                {
                     "speed_name": mode,
-                    "speed_values": [{"speed_synonym": [mode], "lang": "en"}],
+                    "speed_values": [
+                        {"speed_synonym": synonyms, "lang": language}
+                        for language, synonyms in self._synonyms(
+                            mode, climate.ATTR_FAN_MODE
+                        ).items()
+                    ],
                 }
-                speeds.append(speed)
+                for mode in modes
+            ]
 
             result.update(
                 {
@@ -1851,10 +1912,18 @@ class ModesTrait(_Trait):
     name = TRAIT_MODES
     commands = [COMMAND_MODES]
 
-    SYNONYMS = {
-        "preset mode": ["preset mode", "mode", "preset"],
-        "sound mode": ["sound mode", "effects"],
-        "option": ["option", "setting", "mode", "value"],
+    ATTRIBUTES: dict[str, dict[str, str]] = {
+        fan.DOMAIN: {fan.ATTR_PRESET_MODE: fan.ATTR_PRESET_MODES},
+        media_player.DOMAIN: {
+            media_player.ATTR_SOUND_MODE: media_player.ATTR_SOUND_MODE_LIST
+        },
+        input_select.DOMAIN: {ATTR_STATE: input_select.ATTR_OPTIONS},
+        select.DOMAIN: {ATTR_STATE: select.ATTR_OPTIONS},
+        humidifier.DOMAIN: {humidifier.ATTR_MODE: humidifier.ATTR_AVAILABLE_MODES},
+        light.DOMAIN: {light.ATTR_EFFECT: light.ATTR_EFFECT_LIST},
+        water_heater.DOMAIN: {
+            water_heater.ATTR_OPERATION_MODE: water_heater.ATTR_OPERATION_LIST
+        },
     }
 
     @staticmethod
@@ -1886,51 +1955,36 @@ class ModesTrait(_Trait):
 
         return features & MediaPlayerEntityFeature.SELECT_SOUND_MODE
 
-    def _generate(self, name, settings):
+    def _generate(self, attr: str, settings: list[str]):
         """Generate a list of modes."""
-        mode = {
-            "name": name,
+        return {
+            "name": attr,
             "name_values": [
-                {"name_synonym": self.SYNONYMS.get(name, [name]), "lang": "en"}
+                {"name_synonym": synonyms, "lang": language}
+                for language, synonyms in self._synonyms(attr=attr).items()
             ],
-            "settings": [],
-            "ordered": False,
-        }
-        for setting in settings:
-            mode["settings"].append(
+            "settings": [
                 {
                     "setting_name": setting,
                     "setting_values": [
-                        {
-                            "setting_synonym": self.SYNONYMS.get(setting, [setting]),
-                            "lang": "en",
-                        }
+                        {"setting_synonym": synonyms, "lang": language}
+                        for language, synonyms in self._synonyms(
+                            value=setting, attr=attr
+                        ).items()
                     ],
                 }
-            )
-        return mode
+                for setting in settings
+            ],
+            "ordered": False,
+        }
 
     def sync_attributes(self):
         """Return mode attributes for a sync request."""
         modes = []
 
-        for domain, attr, name in (
-            (fan.DOMAIN, fan.ATTR_PRESET_MODES, "preset mode"),
-            (media_player.DOMAIN, media_player.ATTR_SOUND_MODE_LIST, "sound mode"),
-            (input_select.DOMAIN, input_select.ATTR_OPTIONS, "option"),
-            (select.DOMAIN, select.ATTR_OPTIONS, "option"),
-            (humidifier.DOMAIN, humidifier.ATTR_AVAILABLE_MODES, "mode"),
-            (light.DOMAIN, light.ATTR_EFFECT_LIST, "effect"),
-            (water_heater.DOMAIN, water_heater.ATTR_OPERATION_LIST, "operation mode"),
-        ):
-            if self.state.domain != domain:
-                continue
-
-            if (items := self.state.attributes.get(attr)) is not None:
-                modes.append(self._generate(name, items))
-
-            # Shortcut since all domains are currently unique
-            break
+        for attr_name, attr_list in self.ATTRIBUTES.get(self.state.domain, {}).items():
+            if (items := self.state.attributes.get(attr_list)) is not None:
+                modes.append(self._generate(attr_name, items))
 
         return {"availableModes": modes}
 
@@ -1940,26 +1994,11 @@ class ModesTrait(_Trait):
         response = {}
         mode_settings = {}
 
-        if self.state.domain == fan.DOMAIN:
-            if fan.ATTR_PRESET_MODES in attrs:
-                mode_settings["preset mode"] = attrs.get(fan.ATTR_PRESET_MODE)
-        elif self.state.domain == media_player.DOMAIN:
-            if media_player.ATTR_SOUND_MODE_LIST in attrs:
-                mode_settings["sound mode"] = attrs.get(media_player.ATTR_SOUND_MODE)
-        elif self.state.domain in (input_select.DOMAIN, select.DOMAIN):
-            mode_settings["option"] = self.state.state
-        elif self.state.domain == humidifier.DOMAIN:
-            if ATTR_MODE in attrs:
-                mode_settings["mode"] = attrs.get(ATTR_MODE)
-        elif self.state.domain == water_heater.DOMAIN:
-            if water_heater.ATTR_OPERATION_MODE in attrs:
-                mode_settings["operation mode"] = attrs.get(
-                    water_heater.ATTR_OPERATION_MODE
-                )
-        elif self.state.domain == light.DOMAIN and (
-            effect := attrs.get(light.ATTR_EFFECT)
-        ):
-            mode_settings["effect"] = effect
+        for attr_name in self.ATTRIBUTES.get(self.state.domain, {}):
+            if attr_name is ATTR_STATE:
+                mode_settings[attr_name] = self.state.state
+            elif (value := attrs.get(attr_name)) is not None:
+                mode_settings[attr_name] = value
 
         if mode_settings:
             response["on"] = self.state.state not in (STATE_OFF, STATE_UNKNOWN)
@@ -1972,7 +2011,7 @@ class ModesTrait(_Trait):
         settings = params.get("updateModeSettings")
 
         if self.state.domain == fan.DOMAIN:
-            preset_mode = settings["preset mode"]
+            preset_mode = settings[fan.ATTR_PRESET_MODE]
             await self.hass.services.async_call(
                 fan.DOMAIN,
                 fan.SERVICE_SET_PRESET_MODE,
@@ -1986,7 +2025,7 @@ class ModesTrait(_Trait):
             return
 
         if self.state.domain == input_select.DOMAIN:
-            option = settings["option"]
+            option = settings[ATTR_STATE]
             await self.hass.services.async_call(
                 input_select.DOMAIN,
                 input_select.SERVICE_SELECT_OPTION,
@@ -2000,7 +2039,7 @@ class ModesTrait(_Trait):
             return
 
         if self.state.domain == select.DOMAIN:
-            option = settings["option"]
+            option = settings[ATTR_STATE]
             await self.hass.services.async_call(
                 select.DOMAIN,
                 select.SERVICE_SELECT_OPTION,
@@ -2014,7 +2053,7 @@ class ModesTrait(_Trait):
             return
 
         if self.state.domain == humidifier.DOMAIN:
-            requested_mode = settings["mode"]
+            requested_mode = settings[humidifier.ATTR_MODE]
             await self.hass.services.async_call(
                 humidifier.DOMAIN,
                 humidifier.SERVICE_SET_MODE,
@@ -2028,7 +2067,7 @@ class ModesTrait(_Trait):
             return
 
         if self.state.domain == water_heater.DOMAIN:
-            requested_mode = settings["operation mode"]
+            requested_mode = settings[water_heater.ATTR_OPERATION_MODE]
             await self.hass.services.async_call(
                 water_heater.DOMAIN,
                 water_heater.SERVICE_SET_OPERATION_MODE,
@@ -2042,7 +2081,7 @@ class ModesTrait(_Trait):
             return
 
         if self.state.domain == light.DOMAIN:
-            requested_effect = settings["effect"]
+            requested_effect = settings[light.ATTR_EFFECT]
             await self.hass.services.async_call(
                 light.DOMAIN,
                 SERVICE_TURN_ON,
@@ -2056,7 +2095,7 @@ class ModesTrait(_Trait):
             return
 
         if self.state.domain == media_player.DOMAIN and (
-            sound_mode := settings.get("sound mode")
+            sound_mode := settings.get(media_player.ATTR_SOUND_MODE)
         ):
             await self.hass.services.async_call(
                 media_player.DOMAIN,
@@ -2103,7 +2142,15 @@ class InputSelectorTrait(_Trait):
         attrs = self.state.attributes
         sourcelist: list[str] = attrs.get(media_player.ATTR_INPUT_SOURCE_LIST) or []
         inputs = [
-            {"key": source, "names": [{"name_synonym": [source], "lang": "en"}]}
+            {
+                "key": source,
+                "names": [
+                    {"name_synonym": synonyms, "lang": language}
+                    for language, synonyms in self._synonyms(
+                        value=source, attr=media_player.ATTR_INPUT_SOURCE
+                    ).items()
+                ],
+            }
             for source in sourcelist
         ]
 

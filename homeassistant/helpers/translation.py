@@ -12,6 +12,7 @@ import string
 from typing import Any
 
 from homeassistant.const import (
+    ATTR_STATE,
     EVENT_CORE_CONFIG_UPDATE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
@@ -26,6 +27,7 @@ from homeassistant.loader import (
 from homeassistant.util.json import load_json
 
 from . import singleton
+from .typing import UNDEFINED, UndefinedType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -415,11 +417,13 @@ def async_setup(hass: HomeAssistant) -> None:
     )
 
 
-async def async_load_integrations(hass: HomeAssistant, integrations: set[str]) -> None:
+async def async_load_integrations(
+    hass: HomeAssistant, integrations: set[str], language: str | None = None
+) -> None:
     """Load translations for integrations."""
-    await _async_get_translations_cache(hass).async_load(
-        hass.config.language, integrations
-    )
+    if language is None:
+        language = hass.config.language
+    await _async_get_translations_cache(hass).async_load(language, integrations)
 
 
 @callback
@@ -460,21 +464,19 @@ def async_get_exception_message(
 
 
 @callback
-def async_translate_state(
+def async_translate_entity_string(
     hass: HomeAssistant,
-    state: str,
     domain: str,
     platform: str | None,
     translation_key: str | None,
     device_class: str | None,
-) -> str:
-    """Translate provided state using cached translations for currently selected language."""
-    if state in [STATE_UNAVAILABLE, STATE_UNKNOWN]:
-        return state
-    language = hass.config.language
+    suffix: str,
+    language: str,
+) -> str | None:
+    """Translate provided suffix using cached translations for given language."""
     if platform is not None and translation_key is not None:
         localize_key = (
-            f"component.{platform}.entity.{domain}.{translation_key}.state.{state}"
+            f"component.{platform}.entity.{domain}.{translation_key}.{suffix}"
         )
         translations = async_get_cached_translations(hass, language, "entity")
         if localize_key in translations:
@@ -482,13 +484,56 @@ def async_translate_state(
 
     translations = async_get_cached_translations(hass, language, "entity_component")
     if device_class is not None:
-        localize_key = (
-            f"component.{domain}.entity_component.{device_class}.state.{state}"
-        )
+        localize_key = f"component.{domain}.entity_component.{device_class}.{suffix}"
         if localize_key in translations:
             return translations[localize_key]
-    localize_key = f"component.{domain}.entity_component._.state.{state}"
+    localize_key = f"component.{domain}.entity_component._.{suffix}"
     if localize_key in translations:
         return translations[localize_key]
 
+    return None
+
+
+@callback
+def async_translate_state(
+    hass: HomeAssistant,
+    state: str,
+    domain: str,
+    platform: str | None,
+    translation_key: str | None,
+    device_class: str | None,
+    language: str | None = None,
+) -> str:
+    """Translate provided state using cached translations for currently selected language."""
+    if state in [STATE_UNAVAILABLE, STATE_UNKNOWN]:
+        return state
+    if language is None:
+        language = hass.config.language
+    if translation := async_translate_entity_string(
+        hass,
+        domain,
+        platform,
+        translation_key,
+        device_class,
+        f"state.{state}",
+        language,
+    ):
+        return translation
     return state
+
+
+@callback
+def async_translation_suffix(
+    attribute: str | UndefinedType = UNDEFINED,
+    value: str | UndefinedType = UNDEFINED,
+) -> str:
+    """Construct a translation suffix."""
+    attribute_undef = attribute is UNDEFINED or attribute == ATTR_STATE
+    if attribute_undef and value is UNDEFINED:
+        return "name"
+    if attribute_undef:
+        return f"state.{value}"
+    if value is UNDEFINED:
+        return f"state_attributes.{attribute}.name"
+
+    return f"state_attributes.{attribute}.state.{value}"

@@ -149,11 +149,6 @@ class TotalConnectAlarm(TotalConnectLocationEntity, AlarmControlPanelEntity):
 
         return state
 
-    def _check_code(self, code: str | None) -> None:
-        """Check that user provided code is valid."""
-        if self._attr_code_arm_required and self._location.usercode != code:
-            raise HomeAssistantError("User entered incorrect alarm code.")
-
     async def async_alarm_disarm(self, code: str | None = None) -> None:
         """Send disarm command."""
         try:
@@ -171,7 +166,8 @@ class TotalConnectAlarm(TotalConnectLocationEntity, AlarmControlPanelEntity):
 
     def _disarm(self, code: str | None = None) -> None:
         """Disarm synchronous."""
-        self._check_code(code)
+        if self._attr_code_arm_required and self._location.usercode != code:
+            raise HomeAssistantError("User entered incorrect alarm code.")
         ArmingHelper(self._partition).disarm()
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
@@ -191,7 +187,6 @@ class TotalConnectAlarm(TotalConnectLocationEntity, AlarmControlPanelEntity):
 
     def _arm_home(self, code: str | None = None) -> None:
         """Arm home synchronous."""
-        self._check_code(code)
         ArmingHelper(self._partition).arm_stay()
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
@@ -211,7 +206,6 @@ class TotalConnectAlarm(TotalConnectLocationEntity, AlarmControlPanelEntity):
 
     def _arm_away(self, code: str | None = None) -> None:
         """Arm away synchronous."""
-        self._check_code(code)
         ArmingHelper(self._partition).arm_away()
 
     async def async_alarm_arm_night(self, code: str | None = None) -> None:
@@ -231,7 +225,6 @@ class TotalConnectAlarm(TotalConnectLocationEntity, AlarmControlPanelEntity):
 
     def _arm_night(self, code: str | None = None) -> None:
         """Arm night synchronous."""
-        self._check_code(code)
         ArmingHelper(self._partition).arm_stay_night()
 
     async def async_alarm_arm_home_instant(self, code: str | None = None) -> None:

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import Enum
 import fnmatch
 from functools import lru_cache
+from operator import or_, sub
 import re
+from typing import Final
 
 import voluptuous as vol
 
@@ -20,14 +23,21 @@ from homeassistant.core import split_entity_id
 
 from . import config_validation as cv
 
-CONF_INCLUDE_DOMAINS = "include_domains"
-CONF_INCLUDE_ENTITY_GLOBS = "include_entity_globs"
-CONF_INCLUDE_ENTITIES = "include_entities"
-CONF_EXCLUDE_DOMAINS = "exclude_domains"
-CONF_EXCLUDE_ENTITY_GLOBS = "exclude_entity_globs"
-CONF_EXCLUDE_ENTITIES = "exclude_entities"
+CONF_INCLUDE_DOMAINS: Final = "include_domains"
+CONF_INCLUDE_ENTITY_GLOBS: Final = "include_entity_globs"
+CONF_INCLUDE_ENTITIES: Final = "include_entities"
+CONF_EXCLUDE_DOMAINS: Final = "exclude_domains"
+CONF_EXCLUDE_ENTITY_GLOBS: Final = "exclude_entity_globs"
+CONF_EXCLUDE_ENTITIES: Final = "exclude_entities"
 
-CONF_ENTITY_GLOBS = "entity_globs"
+CONF_ENTITY_GLOBS: Final = "entity_globs"
+
+
+class UpdateOperation(Enum):
+    """An update operation for EntityFilter."""
+
+    ADD = or_
+    REMOVE = sub
 
 
 class EntityFilter:
@@ -35,8 +45,37 @@ class EntityFilter:
 
     def __init__(self, config: dict[str, list[str]]) -> None:
         """Init the filter."""
-        self.empty_filter: bool = sum(len(val) for val in config.values()) == 0
         self.config = config
+        self._generate_filter()
+
+    def update(
+        self,
+        operation: UpdateOperation,
+        *,
+        include_entities: list[str] | None = None,
+        include_domains: list[str] | None = None,
+        include_entity_globs: list[str] | None = None,
+        exclude_entities: list[str] | None = None,
+        exclude_domains: list[str] | None = None,
+        exclude_entity_globs: list[str] | None = None,
+    ) -> None:
+        """Add to the filter config."""
+        operator = operation.value
+        for key, values in (
+            ("include_entities", include_entities),
+            ("include_domains", include_domains),
+            ("include_entity_globs", include_entity_globs),
+            ("exclude_entities", exclude_entities),
+            ("exclude_domains", exclude_domains),
+            ("exclude_entity_globs", exclude_entity_globs),
+        ):
+            self.config[key] = list(operator(set(self.config[key]), set(values or [])))
+        self._generate_filter()
+
+    def _generate_filter(self) -> None:
+        """Generate the filter."""
+        config = self.config
+        self.empty_filter: bool = sum(len(val) for val in config.values()) == 0
         self._include_e = set(config[CONF_INCLUDE_ENTITIES])
         self._exclude_e = set(config[CONF_EXCLUDE_ENTITIES])
         self._include_d = set(config[CONF_INCLUDE_DOMAINS])

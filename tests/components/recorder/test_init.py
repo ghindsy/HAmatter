@@ -24,13 +24,14 @@ from homeassistant.components.recorder import (
     CONF_DB_MAX_RETRIES,
     CONF_DB_RETRY_WAIT,
     CONF_DB_URL,
-    CONFIG_SCHEMA,
     DOMAIN,
     Recorder,
+    UpdateOperation,
     db_schema,
     get_instance,
     migration,
     statistics,
+    update_entity_filter,
 )
 from homeassistant.components.recorder.const import (
     EVENT_RECORDER_5MIN_STATISTICS_GENERATED,
@@ -78,6 +79,7 @@ from homeassistant.helpers import (
     issue_registry as ir,
     recorder as recorder_helper,
 )
+from homeassistant.helpers.entityfilter import BASE_FILTER_SCHEMA, convert_filter
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from homeassistant.util.json import json_loads
@@ -134,7 +136,7 @@ def _default_recorder(hass):
         uri="sqlite://",
         db_max_retries=10,
         db_retry_wait=3,
-        entity_filter=CONFIG_SCHEMA({DOMAIN: {}}),
+        entity_filter=convert_filter(BASE_FILTER_SCHEMA({})),
         exclude_event_types=set(),
     )
 
@@ -2730,6 +2732,33 @@ async def test_all_tables_use_default_table_args(hass: HomeAssistant) -> None:
     """Test that all tables use the default table args."""
     for table in db_schema.Base.metadata.tables.values():
         assert table.kwargs.items() >= db_schema._DEFAULT_TABLE_ARGS.items()
+
+
+async def test_update_entity_filter(
+    hass: HomeAssistant, async_setup_recorder_instance: RecorderInstanceGenerator
+) -> None:
+    """Test updating the entity filter."""
+    instance = await async_setup_recorder_instance(hass, {})
+    assert instance.entity_filter is None
+    update_entity_filter(hass, UpdateOperation.ADD, exclude_entities=["sensor.exclude"])
+    assert instance.entity_filter is not None
+    assert instance.entity_filter("switch.included") is True
+    assert instance.entity_filter("sensor.exclude") is False
+    update_entity_filter(
+        hass, UpdateOperation.REMOVE, exclude_entities=["sensor.exclude"]
+    )
+    assert instance.entity_filter is None
+    update_entity_filter(hass, UpdateOperation.ADD, include_domains=["sensor"])
+    assert instance.entity_filter is not None
+    assert instance.entity_filter("switch.not_mentioned") is False
+    assert instance.entity_filter("sensor.domain") is True
+
+    update_entity_filter(hass, UpdateOperation.REMOVE, include_domains=["sensor"])
+    assert instance.entity_filter is None
+    update_entity_filter(hass, UpdateOperation.ADD, exclude_domains=["switch"])
+    assert instance.entity_filter is not None
+    assert instance.entity_filter("switch.domain") is False
+    assert instance.entity_filter("sensor.not_mentioned") is True
 
 
 async def test_empty_entity_id(

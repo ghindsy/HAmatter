@@ -103,15 +103,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     try:
-        # symlink the local cache to persistent HA storage (/config/Abode)
-        local_cache = ABODE_CACHE_PATHS.user_data
-        persist_cache = Path(hass.config.path(local_cache.stem)).absolute()
-        if not persist_cache.exists():
-            shutil.copytree(local_cache, persist_cache)
-        if local_cache.resolve() != persist_cache:
-            shutil.rmtree(local_cache, ignore_errors=True)
-            local_cache.symlink_to(persist_cache, target_is_directory=True)
 
+        def _symlink_cache() -> None:
+            # the user_data property implicitly creates the local cache dir
+            local = ABODE_CACHE_PATHS.user_data
+            persist = Path(hass.config.path(local.stem)).absolute()
+
+            if not persist.exists():
+                shutil.copytree(local, persist)
+
+            if not local.is_symlink():
+                shutil.rmtree(local)
+                local.symlink_to(persist, target_is_directory=True)
+
+        await hass.async_add_executor_job(_symlink_cache)
         abode = await hass.async_add_executor_job(
             Abode, username, password, True, True, True
         )

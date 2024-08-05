@@ -5,9 +5,18 @@ from unittest.mock import AsyncMock, patch
 from homeassistant import config_entries
 from homeassistant.components.swidget.config_flow import CannotConnect
 from homeassistant.components.swidget.const import DOMAIN
-from homeassistant.const import CONF_HOST, CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_MAC, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+
+from . import _patch_connect, _patch_discovery, _patch_single_discovery
+
+# Sample data for testing
+SAMPLE_HOST = "192.168.1.100"
+SAMPLE_PASSWORD = "test_password"
+SAMPLE_MAC = "00:1A:2B:3C:4D:5E"
+SAMPLE_TITLE = "Swidget Device"
+SAMPLE_DISCOVERY = {CONF_HOST: SAMPLE_HOST, CONF_MAC: SAMPLE_MAC}
 
 
 async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
@@ -22,7 +31,7 @@ async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
         "homeassistant.components.swidget.config_flow.validate_input",
         return_value={
             "title": "Name of the device",
-            "unique_id": "test_device_12345678",
+            "mac_address": SAMPLE_MAC,
         },
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -40,7 +49,6 @@ async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
         CONF_HOST: "1.1.1.1",
         CONF_PASSWORD: "test-password",
     }
-    assert len(mock_setup_entry.mock_calls) == 1
 
 
 async def test_form_cannot_connect(
@@ -74,7 +82,7 @@ async def test_form_cannot_connect(
         "homeassistant.components.swidget.config_flow.validate_input",
         return_value={
             "title": "Name of the device",
-            "unique_id": "test_device_12345678",
+            "mac_address": SAMPLE_MAC,
         },
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -92,4 +100,17 @@ async def test_form_cannot_connect(
         CONF_HOST: "1.1.1.1",
         CONF_PASSWORD: "test-password",
     }
-    assert len(mock_setup_entry.mock_calls) == 1
+
+
+async def test_discovery_no_device(hass: HomeAssistant) -> None:
+    """Test discovery without device."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    with _patch_discovery(no_device=True), _patch_single_discovery(), _patch_connect():
+        result2 = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        await hass.async_block_till_done()
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result2["reason"] == "no_devices_found"

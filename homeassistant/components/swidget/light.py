@@ -9,13 +9,11 @@ from typing import Any, cast
 from swidget.swidgetdimmer import SwidgetDimmer
 
 from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.color import brightness_to_value, value_to_brightness
 
-from .const import DOMAIN
-from .coordinator import SwidgetDataUpdateCoordinator
+from . import SwidgetConfigEntry
 from .entity import CoordinatedSwidgetEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,14 +23,15 @@ BRIGHTNESS_SCALE = (0, 100)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: SwidgetConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up light."""
-    coordinator: SwidgetDataUpdateCoordinator = hass.data[DOMAIN][config_entry.entry_id]
-    if coordinator.device.is_dimmer:
+    coordinator = config_entry.runtime_data.coordinator
+    device = coordinator.device
+    if device.is_dimmer:
         async_add_entities(
-            [SwidgetSmartDimmer(cast(SwidgetDimmer, coordinator.device), coordinator)]
+            [SwidgetSmartDimmer(cast(SwidgetDimmer, device), coordinator)]
         )
 
 

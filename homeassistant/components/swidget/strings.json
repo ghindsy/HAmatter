@@ -1,14 +1,15 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device is already configured",
+      "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]"
     },
     "error": {
       "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid authentication",
       "unknown": "Unexpected error"
     },
-    "flow_title": "{name} {model} ({host})",
+    "flow_title": "{name} ({host})",
     "step": {
       "discovery_confirm": {
         "data": {
@@ -18,7 +19,7 @@
       },
       "pick_device": {
         "data": {
-          "device": "Device"
+          "device": "Pick a Swidget device"
         }
       },
       "user": {
@@ -28,18 +29,6 @@
         },
         "description": "If you leave the host empty, discovery will be used to find devices."
       }
-    }
-  },
-  "services": {
-    "set_default_brightness": {
-      "description": "Set a default brightness without changing the light level",
-      "fields": {
-        "brightness": {
-          "description": "The default light level when turned on",
-          "name": "brightness"
-        }
-      },
-      "name": "Set default brightness"
     }
   }
 }

@@ -1,4 +1,4 @@
-"""Common fixtures for the swidget tests."""
+"""Common fixtures for the Swidget tests."""
 
 from unittest.mock import AsyncMock, patch
 

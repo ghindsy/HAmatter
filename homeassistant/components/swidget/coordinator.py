@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 REQUEST_REFRESH_DELAY = 1.0
 
 
-class SwidgetDataUpdateCoordinator(DataUpdateCoordinator):
+class SwidgetDataUpdateCoordinator(DataUpdateCoordinator[None]):
     """DataUpdateCoordinator to gather data for a specific Swidget device."""
 
     def __init__(
@@ -44,9 +44,9 @@ class SwidgetDataUpdateCoordinator(DataUpdateCoordinator):
     @callback
     async def websocket_event_callback(self, message: dict[Any, Any]) -> None:
         """Update the entity state."""
-        self.async_set_updated_data(self.device.__dict__)
+        self.async_set_updated_data(data=None)
 
-    async def _async_update_data(self) -> Any:
+    async def _async_update_data(self) -> None:
         """Fetch all device and sensor data from api."""
         try:
             await self.device.get_state()

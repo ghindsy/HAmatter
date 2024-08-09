@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
-from syrupy import SnapshotAssertion
+from syrupy.assertion import SnapshotAssertion
 from tesla_fleet_api.exceptions import InvalidCommand, VehicleOffline
 
 from homeassistant.components.climate import (
@@ -209,7 +209,7 @@ async def test_climate_alt(
     hass: HomeAssistant,
     snapshot: SnapshotAssertion,
     entity_registry: er.EntityRegistry,
-    mock_vehicle_data,
+    mock_vehicle_data: AsyncMock,
 ) -> None:
     """Tests that the climate entity is correct."""
 
@@ -223,7 +223,7 @@ async def test_climate_offline(
     hass: HomeAssistant,
     snapshot: SnapshotAssertion,
     entity_registry: er.EntityRegistry,
-    mock_vehicle_data,
+    mock_vehicle_data: AsyncMock,
 ) -> None:
     """Tests that the climate entity is correct."""
 
@@ -369,7 +369,7 @@ async def test_asleep_or_offline(
 
 async def test_climate_noscope(
     hass: HomeAssistant,
-    mock_metadata,
+    mock_metadata: AsyncMock,
 ) -> None:
     """Tests that the climate entity is correct."""
     mock_metadata.return_value = METADATA_NOSCOPE

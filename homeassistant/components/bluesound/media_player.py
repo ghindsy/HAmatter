@@ -255,7 +255,7 @@ class BluesoundPlayer(MediaPlayerEntity):
 
         self._attr_unique_id = format_unique_id(sync_status.mac, port)
         # there should always be one player with the default port per mac
-        if port is DEFAULT_PORT:
+        if port == DEFAULT_PORT:
             self._attr_device_info = DeviceInfo(
                 identifiers={(DOMAIN, format_mac(sync_status.mac))},
                 connections={(CONNECTION_NETWORK_MAC, format_mac(sync_status.mac))},
@@ -317,21 +317,24 @@ class BluesoundPlayer(MediaPlayerEntity):
                 await self.async_update_status()
 
         except (TimeoutError, ClientError):
-            _LOGGER.error("Node %s:%s is offline, retrying later", self.name, self.port)
+            _LOGGER.error("Node %s:%s is offline, retrying later", self.host, self.port)
             await asyncio.sleep(NODE_OFFLINE_CHECK_TIMEOUT)
             self.start_polling()
 
         except CancelledError:
-            _LOGGER.debug("Stopping the polling of node %s:%s", self.name, self.port)
+            _LOGGER.debug("Stopping the polling of node %s:%s", self.host, self.port)
         except Exception:
-            _LOGGER.exception("Unexpected error in %s:%s", self.name, self.port)
+            _LOGGER.exception("Unexpected error in %s:%s", self.host, self.port)
             raise
 
     async def async_added_to_hass(self) -> None:
         """Start the polling task."""
         await super().async_added_to_hass()
 
-        self._polling_task = self.hass.async_create_task(self._start_poll_command())
+        self._polling_task = self.hass.async_create_background_task(
+            self._start_poll_command(),
+            name=f"bluesound.polling_{self.host}:{self.port}",
+        )
 
     async def async_will_remove_from_hass(self) -> None:
         """Stop the polling task."""

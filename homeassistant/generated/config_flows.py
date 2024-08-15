@@ -357,6 +357,7 @@ FLOWS = {
         "modem_callerid",
         "modern_forms",
         "moehlenhoff_alpha2",
+        "monarchmoney",
         "monoprice",
         "monzo",
         "moon",

@@ -555,6 +555,7 @@ FLOWS = {
         "sun",
         "sunweg",
         "surepetcare",
+        "swidget",
         "swiss_public_transport",
         "switchbee",
         "switchbot",

@@ -19,6 +19,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.components import lovelace
+from homeassistant.components.lovelace import dashboard
 
 from .const import DEFAULT_SETUP_TIMEOUT, DOMAIN, PRODUCT
 from .helpers import get_maybe_authenticated_session
@@ -36,6 +39,40 @@ PLATFORMS = [
 ]
 
 PARALLEL_UPDATES = 0
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    async def setup_dashboard(call):
+        dashboards_collection: dashboard.DashboardsCollection = hass.data[lovelace.DOMAIN][
+            "dashboards_collection"
+        ]
+
+        for id_, product in hass.data[DOMAIN].items():
+            url = "url_path"
+            dashboard_create_data = {
+                lovelace.CONF_ALLOW_SINGLE_WORD: True,
+                lovelace.CONF_URL_PATH: url,
+                lovelace.CONF_TITLE: f"Energy ({id_})",
+            }
+
+            await dashboards_collection.async_create_item(dashboard_create_data)
+            dashboard_store: dashboard.LovelaceStorage = hass.data[lovelace.DOMAIN]["dashboards"][url]
+            await dashboard_store.async_save({
+                "views": [
+                    {
+                        "title": "ALL PHASES(1 + 2 + 3)",
+                        "badges": [
+                            {
+                                "type": "entity",
+                                "entity": "light.my_wlightbox_ct_v20200229_wlightbox_color_cct"}
+                        ],
+                    }
+                ]
+            })
+
+    hass.services.async_register(DOMAIN, "dashboard", setup_dashboard)
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

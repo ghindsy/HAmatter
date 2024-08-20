@@ -19,7 +19,7 @@ from homeassistant.const import (
     ATTR_MODE,
     ATTR_NAME,
     CONF_ALIAS,
-    CONF_CONDITION,
+    CONF_CONDITIONS,
     CONF_DEVICE_ID,
     CONF_ENTITY_ID,
     CONF_EVENT_DATA,
@@ -104,11 +104,11 @@ from homeassistant.util.dt import parse_datetime
 
 from .config import AutomationConfig, ValidationStatus
 from .const import (
-    CONF_ACTION,
+    CONF_ACTIONS,
     CONF_INITIAL_STATE,
     CONF_TRACE,
-    CONF_TRIGGER,
     CONF_TRIGGER_VARIABLES,
+    CONF_TRIGGERS,
     DEFAULT_INITIAL_STATE,
     DOMAIN,
     LOGGER,
@@ -968,7 +968,7 @@ async def _create_automation_entities(
 
         action_script = Script(
             hass,
-            config_block[CONF_ACTION],
+            config_block[CONF_ACTIONS],
             name,
             DOMAIN,
             running_description="automation actions",
@@ -981,7 +981,7 @@ async def _create_automation_entities(
             # and so will pass them on to the script.
         )
 
-        if CONF_CONDITION in config_block:
+        if CONF_CONDITIONS in config_block:
             cond_func = await _async_process_if(hass, name, config_block)
 
             if cond_func is None:
@@ -1004,7 +1004,7 @@ async def _create_automation_entities(
         entity = AutomationEntity(
             automation_id,
             name,
-            config_block[CONF_TRIGGER],
+            config_block[CONF_TRIGGERS],
             cond_func,
             action_script,
             initial_state,
@@ -1144,7 +1144,7 @@ async def _async_process_if(
     hass: HomeAssistant, name: str, config: dict[str, Any]
 ) -> IfAction | None:
     """Process if checks."""
-    if_configs = config[CONF_CONDITION]
+    if_configs = config[CONF_CONDITIONS]
 
     checks: list[condition.ConditionCheckerType] = []
     for if_config in if_configs:

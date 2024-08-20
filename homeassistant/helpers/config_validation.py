@@ -718,6 +718,9 @@ def template(value: Any | None) -> template_helper.Template:
 
     template_value = template_helper.Template(str(value), _async_get_hass_or_none())
 
+    if isinstance(value, template_helper.RenderedTemplateResultStrWrapper):
+        template_value.is_static = True
+
     try:
         template_value.ensure_valid()
     except TemplateError as ex:
@@ -735,6 +738,9 @@ def dynamic_template(value: Any | None) -> template_helper.Template:
         raise vol.Invalid("template value does not contain a dynamic template")
 
     template_value = template_helper.Template(str(value), _async_get_hass_or_none())
+
+    if isinstance(value, template_helper.RenderedTemplateResultStrWrapper):
+        template_value.is_static = True
 
     try:
         template_value.ensure_valid()

@@ -61,21 +61,22 @@ async def test_update_failed(
     mock_smlight_client: MagicMock,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Test update failed due to connection error."""
+    """Test update failed due to error."""
 
     await setup_integration(hass, mock_config_entry)
     entity = hass.states.get("sensor.mock_title_core_chip_temp")
     assert entity.state is not STATE_UNAVAILABLE
 
-    mock_smlight_client.get_info.side_effect = SmlightConnectionError
+    for side_effect in (SmlightConnectionError, SmlightAuthError):
+        mock_smlight_client.get_info.side_effect = side_effect
 
-    freezer.tick(SCAN_INTERVAL)
-    async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+        freezer.tick(SCAN_INTERVAL)
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done()
 
-    entity = hass.states.get("sensor.mock_title_core_chip_temp")
-    assert entity is not None
-    assert entity.state == STATE_UNAVAILABLE
+        entity = hass.states.get("sensor.mock_title_core_chip_temp")
+        assert entity is not None
+        assert entity.state == STATE_UNAVAILABLE
 
 
 async def test_device_info(

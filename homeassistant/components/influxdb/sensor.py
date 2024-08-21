@@ -43,6 +43,7 @@ from .const import (
     CONF_QUERY,
     CONF_RANGE_START,
     CONF_RANGE_STOP,
+    CONF_VERBATIM,
     CONF_WHERE,
     DEFAULT_API_VERSION,
     DEFAULT_FIELD,
@@ -138,6 +139,7 @@ _QUERY_SCHEMA = {
             vol.Required(CONF_QUERY): cv.template,
             vol.Optional(CONF_IMPORTS): vol.All(cv.ensure_list, [cv.string]),
             vol.Optional(CONF_GROUP_FUNCTION): cv.string,
+            vol.Optional(CONF_VERBATIM): cv.boolean,
         }
     ),
 }
@@ -208,6 +210,7 @@ class InfluxSensor(SensorEntity):
                 query.get(CONF_QUERY),
                 query.get(CONF_IMPORTS),
                 query.get(CONF_GROUP_FUNCTION),
+                query.get(CONF_VERBATIM),
             )
 
         else:
@@ -251,7 +254,9 @@ class InfluxSensor(SensorEntity):
 class InfluxFluxSensorData:
     """Class for handling the data retrieval from Influx with Flux query."""
 
-    def __init__(self, influx, bucket, range_start, range_stop, query, imports, group):
+    def __init__(
+        self, influx, bucket, range_start, range_stop, query, imports, group, verbatim
+    ):
         """Initialize the data object."""
         self.influx = influx
         self.bucket = bucket
@@ -260,6 +265,7 @@ class InfluxFluxSensorData:
         self.query = query
         self.imports = imports
         self.group = group
+        self.verbatim = verbatim
         self.value = None
         self.full_query = None
 
@@ -286,7 +292,12 @@ class InfluxFluxSensorData:
             _LOGGER.error(RENDERING_QUERY_ERROR_MESSAGE, ex)
             return
 
-        self.full_query = f"{self.query_prefix} {rendered_query} {self.query_postfix}"
+        if self.verbatim:
+            self.full_query = rendered_query
+        else:
+            self.full_query = (
+                f"{self.query_prefix} {rendered_query} {self.query_postfix}"
+            )
 
         _LOGGER.debug(RUNNING_QUERY_MESSAGE, self.full_query)
 

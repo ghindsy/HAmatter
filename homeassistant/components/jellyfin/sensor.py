@@ -35,8 +35,6 @@ SENSOR_TYPES: dict[str, JellyfinSensorEntityDescription] = {
     "sessions": JellyfinSensorEntityDescription(
         key="watching",
         translation_key="watching",
-        name=None,
-        native_unit_of_measurement="Watching",
         value_fn=_count_now_playing,
     )
 }
@@ -59,6 +57,7 @@ async def async_setup_entry(
 class JellyfinSensor(JellyfinEntity, SensorEntity):
     """Defines a Jellyfin sensor entity."""
 
+    _attr_has_entity_name = True
     entity_description: JellyfinSensorEntityDescription
 
     @property

@@ -51,6 +51,7 @@ from homeassistant.const import (
 from homeassistant.core import (
     Context,
     HomeAssistant,
+    ServiceResponse,
     State,
     callback,
     split_entity_id,
@@ -2112,6 +2113,76 @@ def as_timedelta(value: str) -> timedelta | None:
     return dt_util.parse_duration(value)
 
 
+def merge_response(
+    value: ServiceResponse, sort_by: str | None = None, selected_key: str | None = None
+) -> list[Any]:
+    """Merge action responses into single list.
+
+    Checks that the input is a correct service response:
+    {
+        "entity_id": {str: dict[str, Any]},
+    }
+    If response is a single list, it will extend the list with the items
+        and add the entity_id and value_key to each dictionary for reference.
+    If response is a dictionary or multiple lists,
+        it will append the dictionary/lists to the list
+        and add the entity_id to each dictionary for reference.
+    """
+    if not isinstance(value, dict):
+        raise TypeError("Response is not a dictionary")
+    if not value:
+        # Bail out early if response is an empty dictionary
+        return []
+
+    is_single_list = False
+    response_items: list = []
+    for entity_id, entity_response in value.items():
+        if not isinstance(entity_response, dict):
+            raise TypeError("Response is not a dictionary")
+        for value_key, type_response in entity_response.items():
+            if len(entity_response) == 1 and isinstance(type_response, list):
+                # Provides special handling for responses such as calendar events
+                # and weather forecasts where the response contains a single list with multiple
+                # dictionaries inside.
+                is_single_list = True
+                for dict_in_list in type_response:
+                    if isinstance(dict_in_list, dict):
+                        dict_in_list["entity_id"] = entity_id
+                        dict_in_list["value_key"] = value_key
+                response_items.extend(type_response)
+            else:
+                # Break the loop if not a single list as the logic is then managed in the outer loop
+                # which handles both dictionaries and in the case of multiple lists.
+                break
+
+        if not is_single_list:
+            _response = entity_response.copy()
+            _response["entity_id"] = entity_id
+            response_items.append(_response)
+
+    # Allows to sort the response items by a key within the list
+    if sort_by:
+        # Check that response items are a list of dictionaries has already been done
+        if sort_by not in response_items[0]:
+            raise ValueError("Sort by key is incorrect")
+        response_items = sorted(response_items, key=lambda x: x[sort_by])
+
+    # Allows to select a specific key from the response items (second level)
+    if selected_key:
+        # Check that response items are a list of dictionaries has already been done
+        new_list = []
+        for sub_dict in response_items:
+            try:
+                new_dict = sub_dict[selected_key]
+            except KeyError as err:
+                raise ValueError(f"Key '{selected_key}' missing in response") from err
+            new_dict["entity_id"] = sub_dict["entity_id"]
+            new_list.append(new_dict)
+        response_items = new_list
+
+    return response_items
+
+
 def strptime(string, fmt, default=_SENTINEL):
     """Parse a time string to datetime."""
     try:
@@ -2827,6 +2898,7 @@ class TemplateEnvironment(ImmutableSandboxedEnvironment):
         self.globals["as_timedelta"] = as_timedelta
         self.globals["as_timestamp"] = forgiving_as_timestamp
         self.globals["timedelta"] = timedelta
+        self.globals["merge_response"] = merge_response
         self.globals["strptime"] = strptime
         self.globals["urlencode"] = urlencode
         self.globals["average"] = average

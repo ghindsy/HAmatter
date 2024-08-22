@@ -1171,6 +1171,8 @@ PERCENTAGE: Final = "%"
 # Rotational speed units
 REVOLUTIONS_PER_MINUTE: Final = "rpm"
 
+# pH units
+POTENTIAL_OF_HYDROGEN: Final = "pH"
 
 # Irradiance units
 class UnitOfIrradiance(StrEnum):

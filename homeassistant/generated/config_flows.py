@@ -494,6 +494,7 @@ FLOWS = {
         "sensirion_ble",
         "sensorpro",
         "sensorpush",
+        "sensorpush_cloud",
         "sentry",
         "senz",
         "seventeentrack",

@@ -555,7 +555,6 @@ FLOWS = {
         "subaru",
         "suez_water",
         "sun",
-        "sunweg",
         "surepetcare",
         "swiss_public_transport",
         "switchbee",

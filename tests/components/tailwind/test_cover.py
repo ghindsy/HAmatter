@@ -28,8 +28,8 @@ pytestmark = pytest.mark.usefixtures("init_integration")
 @pytest.mark.parametrize(
     "entity_id",
     [
-        "cover.door_1",
-        "cover.door_2",
+        "cover.door_1",  # status close
+        "cover.door_2",  # status open
     ],
 )
 async def test_cover_entities(

@@ -15,7 +15,6 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_TEMPERATURE,
-    CONF_ADDRESS,
     CONF_DOMAIN,
     CONF_ENTITIES,
     CONF_SOURCE,
@@ -36,20 +35,16 @@ from .const import (
     CONF_SETPOINT,
     DOMAIN,
 )
-from .helpers import DeviceConnectionType, InputType, get_device_connection
+from .helpers import InputType
 
 PARALLEL_UPDATES = 0
 
 
 def create_lcn_climate_entity(
-    hass: HomeAssistant, entity_config: ConfigType, config_entry: ConfigEntry
+    entity_config: ConfigType, config_entry: ConfigEntry
 ) -> LcnEntity:
     """Set up an entity for this domain."""
-    device_connection = get_device_connection(
-        hass, entity_config[CONF_ADDRESS], config_entry
-    )
-
-    return LcnClimate(entity_config, config_entry.entry_id, device_connection)
+    return LcnClimate(entity_config, config_entry)
 
 
 async def async_setup_entry(
@@ -63,7 +58,7 @@ async def async_setup_entry(
     )
 
     async_add_entities(
-        create_lcn_climate_entity(hass, entity_config, config_entry)
+        create_lcn_climate_entity(entity_config, config_entry)
         for entity_config in config_entry.data[CONF_ENTITIES]
         if entity_config[CONF_DOMAIN] == DOMAIN_CLIMATE
     )
@@ -74,11 +69,9 @@ class LcnClimate(LcnEntity, ClimateEntity):
 
     _enable_turn_on_off_backwards_compatibility = False
 
-    def __init__(
-        self, config: ConfigType, entry_id: str, device_connection: DeviceConnectionType
-    ) -> None:
+    def __init__(self, config: ConfigType, config_entry: ConfigEntry) -> None:
         """Initialize of a LCN climate device."""
-        super().__init__(config, entry_id, device_connection)
+        super().__init__(config, config_entry)
 
         self.variable = pypck.lcn_defs.Var[config[CONF_DOMAIN_DATA][CONF_SOURCE]]
         self.setpoint = pypck.lcn_defs.Var[config[CONF_DOMAIN_DATA][CONF_SETPOINT]]

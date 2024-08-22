@@ -8,7 +8,7 @@ import pypck
 
 from homeassistant.components.cover import DOMAIN as DOMAIN_COVER, CoverEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ADDRESS, CONF_DOMAIN, CONF_ENTITIES
+from homeassistant.const import CONF_DOMAIN, CONF_ENTITIES
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
@@ -21,23 +21,19 @@ from .const import (
     CONF_REVERSE_TIME,
     DOMAIN,
 )
-from .helpers import DeviceConnectionType, InputType, get_device_connection
+from .helpers import InputType
 
 PARALLEL_UPDATES = 0
 
 
 def create_lcn_cover_entity(
-    hass: HomeAssistant, entity_config: ConfigType, config_entry: ConfigEntry
+    entity_config: ConfigType, config_entry: ConfigEntry
 ) -> LcnEntity:
     """Set up an entity for this domain."""
-    device_connection = get_device_connection(
-        hass, entity_config[CONF_ADDRESS], config_entry
-    )
-
     if entity_config[CONF_DOMAIN_DATA][CONF_MOTOR] in "OUTPUTS":
-        return LcnOutputsCover(entity_config, config_entry.entry_id, device_connection)
+        return LcnOutputsCover(entity_config, config_entry)
     # in RELAYS
-    return LcnRelayCover(entity_config, config_entry.entry_id, device_connection)
+    return LcnRelayCover(entity_config, config_entry)
 
 
 async def async_setup_entry(
@@ -51,7 +47,7 @@ async def async_setup_entry(
     )
 
     async_add_entities(
-        create_lcn_cover_entity(hass, entity_config, config_entry)
+        create_lcn_cover_entity(entity_config, config_entry)
         for entity_config in config_entry.data[CONF_ENTITIES]
         if entity_config[CONF_DOMAIN] == DOMAIN_COVER
     )
@@ -65,11 +61,9 @@ class LcnOutputsCover(LcnEntity, CoverEntity):
     _attr_is_opening = False
     _attr_assumed_state = True
 
-    def __init__(
-        self, config: ConfigType, entry_id: str, device_connection: DeviceConnectionType
-    ) -> None:
+    def __init__(self, config: ConfigType, config_entry: ConfigEntry) -> None:
         """Initialize the LCN cover."""
-        super().__init__(config, entry_id, device_connection)
+        super().__init__(config, config_entry)
 
         self.output_ids = [
             pypck.lcn_defs.OutputPort["OUTPUTUP"].value,
@@ -169,11 +163,9 @@ class LcnRelayCover(LcnEntity, CoverEntity):
     _attr_is_opening = False
     _attr_assumed_state = True
 
-    def __init__(
-        self, config: ConfigType, entry_id: str, device_connection: DeviceConnectionType
-    ) -> None:
+    def __init__(self, config: ConfigType, config_entry: ConfigEntry) -> None:
         """Initialize the LCN cover."""
-        super().__init__(config, entry_id, device_connection)
+        super().__init__(config, config_entry)
 
         self.motor = pypck.lcn_defs.MotorPort[config[CONF_DOMAIN_DATA][CONF_MOTOR]]
         self.motor_port_onoff = self.motor.value * 2

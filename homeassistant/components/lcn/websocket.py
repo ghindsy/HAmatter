@@ -353,7 +353,7 @@ async def websocket_add_entity(
     callbacks = hass.data[DOMAIN][msg["entry_id"]][ADD_ENTITIES_CALLBACKS]
     async_add_entities, create_lcn_entity = callbacks[msg[CONF_DOMAIN]]
 
-    entity = create_lcn_entity(hass, entity_config, config_entry)
+    entity = create_lcn_entity(entity_config, config_entry)
     async_add_entities([entity])
 
     # Add entity config to config_entry

@@ -516,6 +516,7 @@ FLOWS = {
         "simplefin",
         "simplepush",
         "simplisafe",
+        "sipcall",
         "skybell",
         "slack",
         "sleepiq",

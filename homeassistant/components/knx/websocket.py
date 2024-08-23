@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
 import knx_frontend as knx_panel
 import voluptuous as vol
@@ -18,7 +18,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.typing import UNDEFINED
 from homeassistant.util.ulid import ulid_now
 
-from .const import DOMAIN
+from .const import DOMAIN, KNX_MODULE_KEY
 from .storage.config_store import ConfigStoreException
 from .storage.const import CONF_DATA
 from .storage.entity_store_schema import (
@@ -31,10 +31,6 @@ from .storage.entity_store_validation import (
     validate_entity_data,
 )
 from .telegrams import SIGNAL_KNX_TELEGRAM, TelegramDict
-
-if TYPE_CHECKING:
-    from . import KNXModule
-
 
 URL_BASE: Final = "/knx_static"
 
@@ -90,7 +86,7 @@ def ws_info(
     msg: dict,
 ) -> None:
     """Handle get info command."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
 
     _project_info = None
     if project_info := knx.project.info:
@@ -125,7 +121,7 @@ async def ws_get_knx_project(
     msg: dict,
 ) -> None:
     """Handle get KNX project."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     knxproject = await knx.project.get_knxproject()
     connection.send_result(
         msg["id"],
@@ -151,7 +147,7 @@ async def ws_project_file_process(
     msg: dict,
 ) -> None:
     """Handle get info command."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     try:
         await knx.project.process_project_file(
             xknx=knx.xknx,
@@ -181,7 +177,7 @@ async def ws_project_file_remove(
     msg: dict,
 ) -> None:
     """Handle get info command."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     await knx.project.remove_project_file()
     connection.send_result(msg["id"])
 
@@ -199,7 +195,7 @@ def ws_group_monitor_info(
     msg: dict,
 ) -> None:
     """Handle get info command of group monitor."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     recent_telegrams = [*knx.telegrams.recent_telegrams]
     connection.send_result(
         msg["id"],
@@ -283,7 +279,7 @@ async def ws_create_entity(
     except EntityStoreValidationException as exc:
         connection.send_result(msg["id"], exc.validation_error)
         return
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     try:
         entity_id = await knx.config_store.create_entity(
             # use validation result so defaults are applied
@@ -319,7 +315,7 @@ async def ws_update_entity(
     except EntityStoreValidationException as exc:
         connection.send_result(msg["id"], exc.validation_error)
         return
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     try:
         await knx.config_store.update_entity(
             validated_data[CONF_PLATFORM],
@@ -350,7 +346,7 @@ async def ws_delete_entity(
     msg: dict,
 ) -> None:
     """Delete entity from entity store and remove it."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     try:
         await knx.config_store.delete_entity(msg[CONF_ENTITY_ID])
     except ConfigStoreException as err:
@@ -374,7 +370,7 @@ def ws_get_entity_entries(
     msg: dict,
 ) -> None:
     """Get entities configured from entity store."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     entity_entries = [
         entry.extended_dict for entry in knx.config_store.get_entity_entries()
     ]
@@ -395,7 +391,7 @@ def ws_get_entity_config(
     msg: dict,
 ) -> None:
     """Get entity configuration from entity store."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     try:
         config_info = knx.config_store.get_entity_config(msg[CONF_ENTITY_ID])
     except ConfigStoreException as err:
@@ -421,7 +417,7 @@ def ws_create_device(
     msg: dict,
 ) -> None:
     """Create a new KNX device."""
-    knx: KNXModule = hass.data[DOMAIN]
+    knx = hass.data[KNX_MODULE_KEY]
     identifier = f"knx_vdev_{ulid_now()}"
     device_registry = dr.async_get(hass)
     _device = device_registry.async_get_or_create(

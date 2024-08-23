@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from sensorpush_api.models.sample import Sample
-from sensorpush_api.models.samples import Samples
+from sensorpush_api import Sample, Samples, Sensor
 
 from homeassistant.util import dt as dt_util
 
@@ -44,15 +43,15 @@ MOCK_SAMPLES: Final = Samples(
 )
 
 MOCK_SENSORS: Final = {
-    f"test-sensor-id-{i}": {
-        "active": True,
-        "address": f"AA:BB:CC:DD:EE:{i:02x}",
-        "battery_voltage": 0.0,
-        "deviceId": f"test-sensor-device-id-{i}",
-        "id": f"test-sensor-id-{i}",
-        "name": f"test-sensor-name-{i}",
-        "rssi": 0.0,
-        "type": f"test-sensor-type-{i}",
-    }
+    f"test-sensor-id-{i}": Sensor(
+        active=True,
+        address=f"AA:BB:CC:DD:EE:{i:02x}",
+        battery_voltage=0.0,
+        device_id=f"test-sensor-device-id-{i}",
+        id=f"test-sensor-id-{i}",
+        name=f"test-sensor-name-{i}",
+        rssi=0.0,
+        type=f"test-sensor-type-{i}",
+    )
     for i in range(NUM_MOCK_DEVICES)
 }

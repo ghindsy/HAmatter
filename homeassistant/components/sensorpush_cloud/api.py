@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from asyncio import Lock
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from datetime import datetime
-from functools import partial, wraps
-import json
-from threading import Lock
+from functools import wraps
 from typing import Any, Concatenate
 
 from sensorpush_api import (
@@ -15,32 +14,33 @@ from sensorpush_api import (
     ApiClient,
     AuthorizeRequest,
     Configuration,
+    OpenApiException,
     Samples,
     SamplesRequest,
-    Sensors,
+    Sensor,
     SensorsRequest,
 )
-from sensorpush_api.rest import ApiException
 
-from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import ACCESS_TOKEN_EXPIRATION, LOGGER, REQUEST_RETRIES, REQUEST_TIMEOUT
 
 
 def api_call[**_P, _R](
-    func: Callable[Concatenate[SensorPushCloudApi, _P], _R],
-) -> Callable[Concatenate[SensorPushCloudApi, _P], _R]:
+    func: Callable[Concatenate[SensorPushCloudApi, _P], Awaitable[_R]],
+) -> Callable[Concatenate[SensorPushCloudApi, _P], Coroutine[Any, Any, _R]]:
     """Decorate API calls to handle SensorPush Cloud exceptions."""
 
     @wraps(func)
-    def _api_call(self: SensorPushCloudApi, *args: _P.args, **kwargs: _P.kwargs) -> _R:
-        LOGGER.debug(f"API call to {func} with args={args}, kwargs={kwargs}")
+    async def _api_call(
+        self: SensorPushCloudApi, *args: _P.args, **kwargs: _P.kwargs
+    ) -> _R:
         retries: int = 0
+        LOGGER.debug(f"API call to {func} with args={args}, kwargs={kwargs}")
         while True:
             try:
-                result = func(self, *args, **kwargs)
-            except Exception as e:
+                result = await func(self, *args, **kwargs)
+            except OpenApiException as e:
                 # Force reauthorization if an exception occurs to avoid
                 # authorization failures after temporary outages.
                 self.deadline = dt_util.now()
@@ -52,14 +52,6 @@ def api_call[**_P, _R](
                     continue
 
                 LOGGER.debug(f"API call to {func} failed after {retries} retries")
-                if isinstance(e, ApiException):
-                    # API exceptions provide a JSON-encoded message in the
-                    # body; otherwise, fall back to the general behavior.
-                    try:
-                        data = json.loads(e.body)
-                        raise SensorPushCloudError(data["message"]) from e
-                    except Exception:  # noqa: BLE001
-                        pass
                 raise SensorPushCloudError from e
             else:
                 LOGGER.debug(f"API call to {func} succeeded after {retries} retries")
@@ -75,7 +67,6 @@ class SensorPushCloudError(Exception):
 class SensorPushCloudApi:
     """SensorPush Cloud API class."""
 
-    hass: HomeAssistant
     email: str
     password: str
     configuration: Configuration
@@ -83,73 +74,52 @@ class SensorPushCloudApi:
     deadline: datetime
     lock: Lock
 
-    def __init__(self, hass: HomeAssistant, email: str, password: str) -> None:
+    def __init__(self, email: str, password: str) -> None:
         """Initialize the SensorPush Cloud API object."""
-        self.hass = hass
         self.email = email
         self.password = password
-        # Generated Swagger clients install default logging handlers that
-        # conflict with Home Assistant; remove before making API calls.
         self.configuration = Configuration()
-        for logger in self.configuration.logger.values():
-            logger.removeHandler(self.configuration.logger_stream_handler)
         self.api = ApiApi(ApiClient(self.configuration))
         self.deadline = dt_util.now()
         self.lock = Lock()
 
+    async def async_renew_access(self) -> None:
+        """Renew an access token if it has expired."""
+        async with self.lock:  # serialize authorize calls
+            if dt_util.now() >= self.deadline:
+                await self.async_authorize()
+
     @api_call
-    def authorize(self) -> None:
+    async def async_authorize(self) -> None:
         """Sign in and request an authorization code."""
         # SensorPush provides a simplified OAuth endpoint using access tokens
         # without refresh tokens. It is not possible to use 3rd party client
         # IDs without first contacting SensorPush support.
-        response = self.api.oauth_authorize_post(
+        auth_response = await self.api.oauth_authorize_post(
             AuthorizeRequest(email=self.email, password=self.password),
             _request_timeout=REQUEST_TIMEOUT.total_seconds(),
         )
-        response = self.api.access_token(
-            AccessTokenRequest(authorization=response.authorization),
+        access_response = await self.api.access_token(
+            AccessTokenRequest(authorization=auth_response.authorization),
             _request_timeout=REQUEST_TIMEOUT.total_seconds(),
         )
-        self.configuration.api_key["Authorization"] = response.accesstoken
+        self.configuration.api_key["oauth"] = access_response.accesstoken
         self.deadline = dt_util.now() + ACCESS_TOKEN_EXPIRATION
 
-    async def async_authorize(self) -> None:
-        """Sign in and request an authorization code."""
-        return await self.hass.async_add_executor_job(self.authorize)
-
-    def renew_access_token(self) -> None:
-        """Renew an access token if it has expired."""
-        with self.lock:  # serialize authorize calls
-            if dt_util.now() >= self.deadline:
-                self.authorize()
-
     @api_call
-    def sensors(self, *args: Any, **kwargs: Any) -> Sensors:
+    async def async_sensors(self, *args: Any, **kwargs: Any) -> Mapping[str, Sensor]:
         """List all sensors."""
-        self.renew_access_token()
-        return self.api.sensors(
+        await self.async_renew_access()
+        return await self.api.sensors(
             SensorsRequest(*args, **kwargs),
             _request_timeout=REQUEST_TIMEOUT.total_seconds(),
         )
 
-    async def async_sensors(self, *args: Any, **kwargs: Any) -> Sensors:
-        """List all sensors."""
-        return await self.hass.async_add_executor_job(
-            partial(self.sensors, *args, **kwargs)
-        )
-
     @api_call
-    def samples(self, *args: Any, **kwargs: Any) -> Samples:
-        """Query sensor samples."""
-        self.renew_access_token()
-        return self.api.samples(
-            SamplesRequest(*args, **kwargs),
-            _request_timeout=REQUEST_TIMEOUT.total_seconds(),
-        )
-
     async def async_samples(self, *args: Any, **kwargs: Any) -> Samples:
         """Query sensor samples."""
-        return await self.hass.async_add_executor_job(
-            partial(self.samples, *args, **kwargs)
+        await self.async_renew_access()
+        return await self.api.samples(
+            SamplesRequest(*args, **kwargs),
+            _request_timeout=REQUEST_TIMEOUT.total_seconds(),
         )

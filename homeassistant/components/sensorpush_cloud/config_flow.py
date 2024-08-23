@@ -46,7 +46,10 @@ class SensorPushCloudConfigFlow(ConfigFlow, domain=DOMAIN):
         options: list[SelectOptionDict] = []
         try:
             sensors = await self.api.async_sensors()
-            options = [{"value": k, "label": v["name"]} for k, v in sensors.items()]
+            for k, v in sensors.items():
+                if TYPE_CHECKING:
+                    assert v.name is not None
+                options.append({"value": k, "label": v.name})
         except SensorPushCloudError as e:
             errors["base"] = str(e)
         except Exception:  # noqa: BLE001
@@ -75,7 +78,7 @@ class SensorPushCloudConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             email, password = user_input[CONF_EMAIL], user_input[CONF_PASSWORD]
-            self.api = SensorPushCloudApi(self.hass, email, password)
+            self.api = SensorPushCloudApi(email, password)
             await self.async_set_unique_id(email, raise_on_progress=False)
             self._abort_if_unique_id_configured()
             try:

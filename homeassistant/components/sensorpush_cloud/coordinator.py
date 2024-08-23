@@ -17,7 +17,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .api import SensorPushCloudApi
+from .api import SensorPushCloudApi, SensorPushCloudError
 from .const import (
     ATTR_ALTITUDE,
     ATTR_ATMOSPHERIC_PRESSURE,
@@ -45,7 +45,7 @@ class SensorPushCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: SensorPushCloudConfigEntry) -> None:
         """Initialize the coordinator."""
         email, password = entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD]
-        self.api = SensorPushCloudApi(hass, email, password)
+        self.api = SensorPushCloudApi(email, password)
         self.device_ids = entry.data[CONF_DEVICE_IDS]
         self.devices = {}
         super().__init__(
@@ -70,22 +70,22 @@ class SensorPushCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
                 if device_id not in self.devices:
                     self.devices[device_id] = {
-                        ATTR_DEVICE_ID: sensor["deviceId"],
-                        ATTR_MODEL: sensor["type"],
-                        ATTR_NAME: sensor["name"],
+                        ATTR_DEVICE_ID: sensor.device_id,
+                        ATTR_MODEL: sensor.type,
+                        ATTR_NAME: sensor.name,
                     }
 
                 data[device_id] = {
                     ATTR_ALTITUDE: sample.altitude,
                     ATTR_ATMOSPHERIC_PRESSURE: sample.barometric_pressure,
-                    ATTR_BATTERY_VOLTAGE: sensor["battery_voltage"],
+                    ATTR_BATTERY_VOLTAGE: sensor.battery_voltage,
                     ATTR_DEWPOINT: sample.dewpoint,
                     ATTR_HUMIDITY: sample.humidity,
                     ATTR_LAST_UPDATE: sample.observed,
-                    ATTR_SIGNAL_STRENGTH: sensor["rssi"],
+                    ATTR_SIGNAL_STRENGTH: sensor.rssi,
                     ATTR_TEMPERATURE: sample.temperature,
                     ATTR_VAPOR_PRESSURE: sample.vpd,
                 }
-        except Exception:  # noqa: BLE001
+        except SensorPushCloudError:
             LOGGER.exception("Unexpected exception")
         return data

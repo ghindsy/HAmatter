@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from homeassistant.components.sensorpush_cloud.api import SensorPushCloudError
 from homeassistant.components.sensorpush_cloud.const import CONF_DEVICE_IDS
 from homeassistant.core import HomeAssistant
 
@@ -41,7 +42,7 @@ async def test_update_data_error(
     mock_api: AsyncMock,
 ) -> None:
     """Test we can handle errors when updating data."""
-    mock_api.async_sensors.side_effect = Exception("test-message")
+    mock_api.async_sensors.side_effect = SensorPushCloudError("test-message")
     mock_config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()

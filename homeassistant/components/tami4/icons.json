@@ -28,5 +28,9 @@
         "default": "mdi:water"
       }
     }
+  },
+  "services": {
+    "prepare_drink": "mdi:cup",
+    "fetch_drinks": "mdi:download"
   }
 }

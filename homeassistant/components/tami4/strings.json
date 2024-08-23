@@ -55,5 +55,21 @@
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
+  },
+  "services": {
+    "prepare_drink": {
+      "name": "Prepare Drink",
+      "description": "Use a drink id to prepare a drink on your tami4 edge/edge+.",
+      "fields": {
+        "drink_id": {
+          "name": "Drink Id",
+          "description": "The Drink Id to prepare"
+        }
+      }
+    },
+    "fetch_drinks": {
+      "name": "Fetch Drinks",
+      "description": "Fetch all drinks configured in your tami4edge app."
+    }
   }
 }

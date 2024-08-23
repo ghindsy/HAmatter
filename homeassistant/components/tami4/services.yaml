@@ -1,0 +1,8 @@
+prepare_drink:
+  fields:
+    drink_id:
+      example: "d508bdc6-ff41-41ec-8e19-6674c0ecf71d"
+      required: true
+      selector:
+        text:
+fetch_drinks:

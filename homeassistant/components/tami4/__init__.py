@@ -9,6 +9,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
+from .actions import async_register_services
 from .const import API, CONF_REFRESH_TOKEN, COORDINATOR, DOMAIN
 from .coordinator import Tami4EdgeCoordinator
 
@@ -35,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    async_register_services(hass, entry)
 
     return True
 

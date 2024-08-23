@@ -1233,7 +1233,7 @@ def mock_async_zeroconf(mock_zeroconf: MagicMock) -> Generator[MagicMock]:
     ) as mock_aiozc:
         zc = mock_aiozc.return_value
         zc.async_unregister_service = AsyncMock()
-        zc.async_register_services = AsyncMock()
+        zc.async_register_service = AsyncMock()
         zc.async_update_service = AsyncMock()
         zc.zeroconf = Mock(spec=Zeroconf)
         zc.zeroconf.async_wait_for_start = AsyncMock()

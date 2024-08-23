@@ -7,6 +7,7 @@ import logging
 
 from aioswitcher.api.remotes import SwitcherBreezeRemoteManager
 from aioswitcher.bridge import SwitcherBase, SwitcherBridge
+from aioswitcher.device.tools import validate_token
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import singleton
@@ -42,3 +43,13 @@ async def async_has_devices(hass: HomeAssistant) -> bool:
 def get_breeze_remote_manager(hass: HomeAssistant) -> SwitcherBreezeRemoteManager:
     """Get Switcher Breeze remote manager."""
     return SwitcherBreezeRemoteManager()
+
+
+async def validate_input(username: str, token: str) -> bool:
+    """Validate token by specifying username and token."""
+    token_is_valid = await validate_token(username, token)
+    if token_is_valid:
+        _LOGGER.info("Token is valid")
+        return True
+    _LOGGER.info("Token is invalid")
+    return False

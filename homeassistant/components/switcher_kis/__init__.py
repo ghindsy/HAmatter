@@ -12,7 +12,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP, Platform
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 
-from .const import DOMAIN
+from .const import CONF_TOKEN, DOMAIN
 from .coordinator import SwitcherDataUpdateCoordinator
 
 PLATFORMS = [
@@ -45,13 +45,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: SwitcherConfigEntry) -> 
 
         # New device - create device
         _LOGGER.info(
-            "Discovered Switcher device - id: %s, key: %s, name: %s, type: %s (%s)",
+            "Discovered Switcher device - id: %s, key: %s, name: %s, type: %s (%s), is_token_needed: %s",
             device.device_id,
             device.device_key,
             device.name,
             device.device_type.value,
             device.device_type.hex_rep,
+            device.token_needed,
         )
+
+        if device.token_needed:
+            _LOGGER.info("Found a Switcher device that needs a token")
+            if not entry.data.get(CONF_TOKEN):
+                entry.async_start_reauth(hass)
+                return
 
         coordinator = SwitcherDataUpdateCoordinator(hass, entry, device)
         coordinator.async_setup()

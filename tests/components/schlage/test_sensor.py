@@ -2,7 +2,7 @@
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
@@ -29,3 +29,16 @@ async def test_battery_sensor(
     assert battery_sensor.state == "20"
     assert battery_sensor.attributes["unit_of_measurement"] == PERCENTAGE
     assert battery_sensor.attributes["device_class"] == SensorDeviceClass.BATTERY
+
+
+async def test_auto_lock_time(
+    hass: HomeAssistant, mock_added_config_entry: ConfigEntry
+) -> None:
+    """Test the auto lock time sensor."""
+    auto_lock_time_sensor = hass.states.get("sensor.vault_door_duration")
+    assert auto_lock_time_sensor is not None
+    assert auto_lock_time_sensor.state == "15"
+    assert auto_lock_time_sensor.attributes["unit_of_measurement"] == UnitOfTime.SECONDS
+    assert (
+        auto_lock_time_sensor.attributes["device_class"] == SensorDeviceClass.DURATION
+    )

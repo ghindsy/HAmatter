@@ -1,6 +1,6 @@
 """Actions for Tami 4 Edge."""
 
-import Tami4EdgeAPI
+from Tami4EdgeAPI import Tami4EdgeAPI
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import (

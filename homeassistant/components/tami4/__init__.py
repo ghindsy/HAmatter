@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from Tami4EdgeAPI import Tami4EdgeAPI, exceptions
+from Tami4EdgeAPI import Tami4EdgeAPI
+from Tami4EdgeAPI.exceptions import (
+    RefreshTokenExpiredException,
+    TokenRefreshFailedException,
+)
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -22,9 +26,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         api = await hass.async_add_executor_job(Tami4EdgeAPI, refresh_token)
-    except exceptions.RefreshTokenExpiredException as ex:
+    except RefreshTokenExpiredException as ex:
         raise ConfigEntryError("API Refresh token expired") from ex
-    except exceptions.TokenRefreshFailedException as ex:
+    except TokenRefreshFailedException as ex:
         raise ConfigEntryNotReady("Error connecting to API") from ex
 
     coordinator = Tami4EdgeCoordinator(hass, api)

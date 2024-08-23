@@ -67,6 +67,7 @@ from .const import (  # noqa: F401
     ATTR_MAX_TEMP,
     ATTR_MIN_HUMIDITY,
     ATTR_MIN_TEMP,
+    ATTR_MIN_TEMP_RANGE,
     ATTR_PRESET_MODE,
     ATTR_PRESET_MODES,
     ATTR_SWING_MODE,
@@ -248,6 +249,7 @@ CACHED_PROPERTIES_WITH_ATTR_ = {
     "target_temperature_step",
     "target_temperature_high",
     "target_temperature_low",
+    "min_temperature_range",
     "preset_mode",
     "preset_modes",
     "is_aux_heat",
@@ -302,6 +304,7 @@ class ClimateEntity(Entity, cached_properties=CACHED_PROPERTIES_WITH_ATTR_):
     _attr_target_humidity: float | None = None
     _attr_target_temperature_high: float | None
     _attr_target_temperature_low: float | None
+    _attr_min_temperature_range: float | None
     _attr_target_temperature_step: float | None = None
     _attr_target_temperature: float | None = None
     _attr_temperature_unit: str
@@ -544,6 +547,37 @@ class ClimateEntity(Entity, cached_properties=CACHED_PROPERTIES_WITH_ATTR_):
             data[ATTR_TARGET_TEMP_LOW] = show_temp(
                 hass, self.target_temperature_low, temperature_unit, precision
             )
+            if (
+                hasattr(self, "min_temperature_range")
+                and (min_temp_range := self.min_temperature_range) is not None
+            ):
+                data[ATTR_MIN_TEMP_RANGE] = min_temp_range
+                if (
+                    self.hass.config.units.temperature_unit != temperature_unit
+                    and temperature_unit == UnitOfTemperature.CELSIUS
+                    and (
+                        show_temp_range := show_temp(
+                            hass,
+                            min_temp_range,
+                            temperature_unit,
+                            precision,
+                        )
+                    )
+                ):
+                    data[ATTR_MIN_TEMP_RANGE] = show_temp_range - 32
+                elif (
+                    self.hass.config.units.temperature_unit != temperature_unit
+                    and temperature_unit == UnitOfTemperature.FAHRENHEIT
+                    and (
+                        show_temp_range := show_temp(
+                            hass,
+                            min_temp_range,
+                            temperature_unit,
+                            precision,
+                        )
+                    )
+                ):
+                    data[ATTR_MIN_TEMP_RANGE] = show_temp_range + 32
 
         if (current_humidity := self.current_humidity) is not None:
             data[ATTR_CURRENT_HUMIDITY] = current_humidity
@@ -633,6 +667,14 @@ class ClimateEntity(Entity, cached_properties=CACHED_PROPERTIES_WITH_ATTR_):
         Requires ClimateEntityFeature.TARGET_TEMPERATURE_RANGE.
         """
         return self._attr_target_temperature_low
+
+    @cached_property
+    def min_temperature_range(self) -> float | None:
+        """Return the minimum setpoint deadband when using a temperature range.
+
+        Requires ClimateEntityFeature.TARGET_TEMPERATURE_RANGE.
+        """
+        return self._attr_min_temperature_range
 
     @cached_property
     def preset_mode(self) -> str | None:
@@ -947,6 +989,51 @@ async def async_service_temperature_set(
                 )
         else:
             kwargs[value] = temp
+
+    if not hasattr(entity, "min_temperature_range"):
+        await entity.async_set_temperature(**kwargs)
+        return
+
+    if (
+        (min_temp_range := entity.min_temperature_range)
+        and (target_low_temp := kwargs.get(ATTR_TARGET_TEMP_LOW))
+        and (target_high_temp := kwargs.get(ATTR_TARGET_TEMP_HIGH))
+        and (target_high_temp - target_low_temp) < min_temp_range
+    ):
+        # Ensure target_low_temp is not higher than target_high_temp.
+        if target_low_temp > target_high_temp:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="low_temp_higher_than_high_temp",
+            )
+
+        # Ensure deadband between target temperatures.
+        initial_low_temp = target_low_temp
+        initial_high_temp = target_high_temp
+        if (target_high_temp - target_low_temp) < min_temp_range:
+            target_low_temp = target_high_temp - min_temp_range
+        # Increasing the target temperatures if needed when
+        # target_low_temp is below min_temp
+        if target_low_temp < min_temp:
+            target_low_temp = min_temp
+            target_high_temp = target_low_temp + min_temp_range
+
+        _LOGGER.debug(
+            "Moved low temperature from %d %s to %d %s and high temperature %d %s to %d %s"
+            " due to deadband set to %d",
+            initial_low_temp,
+            temp_unit,
+            target_low_temp,
+            temp_unit,
+            initial_high_temp,
+            temp_unit,
+            target_high_temp,
+            temp_unit,
+            min_temp_range,
+        )
+
+        kwargs[ATTR_TARGET_TEMP_HIGH] = target_high_temp
+        kwargs[ATTR_TARGET_TEMP_LOW] = target_low_temp
 
     await entity.async_set_temperature(**kwargs)
 

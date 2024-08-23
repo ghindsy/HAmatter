@@ -22,6 +22,7 @@ from homeassistant.components.climate.const import (
     ATTR_FAN_MODE,
     ATTR_MAX_TEMP,
     ATTR_MIN_TEMP,
+    ATTR_MIN_TEMP_RANGE,
     ATTR_PRESET_MODE,
     ATTR_SWING_MODE,
     ATTR_TARGET_TEMP_HIGH,
@@ -1050,3 +1051,176 @@ async def test_temperature_validation(
     state = hass.states.get("climate.test")
     assert state.attributes.get(ATTR_TARGET_TEMP_LOW) == 10
     assert state.attributes.get(ATTR_TARGET_TEMP_HIGH) == 25
+
+
+async def test_temperature_range_deadband(
+    hass: HomeAssistant,
+    register_test_integration: MockConfigEntry,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test temperature range with deadband."""
+
+    class MockClimateEntityTargetTemp(MockClimateEntity):
+        """Mock climate class with mocked aux heater."""
+
+        _attr_supported_features = (
+            ClimateEntityFeature.FAN_MODE
+            | ClimateEntityFeature.PRESET_MODE
+            | ClimateEntityFeature.SWING_MODE
+            | ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+        )
+        _attr_temperature_unit = UnitOfTemperature.CELSIUS
+        _attr_min_temperature_range = 3
+        _attr_target_temperature_high = 16
+        _attr_target_temperature_low = 11
+        _attr_max_temp = 20
+        _attr_min_temp = 10
+
+        async def async_set_temperature(self, **kwargs: Any) -> None:
+            """Set new target temperature."""
+            self._attr_target_temperature_high = kwargs.get(ATTR_TARGET_TEMP_HIGH)
+            self._attr_target_temperature_low = kwargs.get(ATTR_TARGET_TEMP_LOW)
+
+    test_climate = MockClimateEntityTargetTemp(
+        name="Test",
+        unique_id="unique_climate_test",
+    )
+
+    setup_test_component_platform(
+        hass, DOMAIN, entities=[test_climate], from_config_entry=True
+    )
+    await hass.config_entries.async_setup(register_test_integration.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("climate.test")
+    assert state is not None
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 15,
+            ATTR_TARGET_TEMP_LOW: 10,
+        },
+        blocking=True,
+    )
+
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 10.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 15.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 3.0
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 20,
+            ATTR_TARGET_TEMP_LOW: 11,
+        },
+        blocking=True,
+    )
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 11.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 20.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 3.0
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 20,
+            ATTR_TARGET_TEMP_LOW: 18,
+        },
+        blocking=True,
+    )
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 17.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 20.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 3.0
+
+    assert (
+        "Moved low temperature from 18 °C to 17 °C and high temperature 20 °C to 20 °C due to deadband set to 3"
+        in caplog.text
+    )
+
+    # Raises as not allowed for min temp to be higher than high temp
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_TEMPERATURE,
+            {
+                "entity_id": "climate.test",
+                ATTR_TARGET_TEMP_HIGH: 18,
+                ATTR_TARGET_TEMP_LOW: 20,
+            },
+            blocking=True,
+        )
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 12,
+            ATTR_TARGET_TEMP_LOW: 10,
+        },
+        blocking=True,
+    )
+
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 10.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 13.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 3.0
+
+    hass.config.units.temperature_unit = UnitOfTemperature.FAHRENHEIT
+
+    # Does not raise as 5 degrees Fahrenheit is within the 3 degrees Celsius range
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 60,  # 15.5 C
+            ATTR_TARGET_TEMP_LOW: 55,  # 12.7 C
+        },
+        blocking=True,
+    )
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 55.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 60.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 5.0
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 60,
+            ATTR_TARGET_TEMP_LOW: 56,
+        },
+        blocking=True,
+    )
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 55.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 60.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 5.0
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {
+            "entity_id": "climate.test",
+            ATTR_TARGET_TEMP_HIGH: 54,
+            ATTR_TARGET_TEMP_LOW: 50,
+        },
+        blocking=True,
+    )
+    state = hass.states.get("climate.test")
+    assert state.attributes[ATTR_TARGET_TEMP_LOW] == 50.0
+    assert state.attributes[ATTR_TARGET_TEMP_HIGH] == 55.0
+    assert state.attributes[ATTR_MIN_TEMP_RANGE] == 5.0
+
+    hass.config.units.temperature_unit = UnitOfTemperature.CELSIUS

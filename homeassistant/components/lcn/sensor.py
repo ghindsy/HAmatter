@@ -10,7 +10,6 @@ import pypck
 from homeassistant.components.sensor import DOMAIN as DOMAIN_SENSOR, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    CONF_ADDRESS,
     CONF_DOMAIN,
     CONF_ENTITIES,
     CONF_SOURCE,
@@ -31,25 +30,19 @@ from .const import (
     THRESHOLDS,
     VARIABLES,
 )
-from .helpers import DeviceConnectionType, InputType, get_device_connection
+from .helpers import InputType
 
 
 def create_lcn_sensor_entity(
-    hass: HomeAssistant, entity_config: ConfigType, config_entry: ConfigEntry
+    entity_config: ConfigType, config_entry: ConfigEntry
 ) -> LcnEntity:
     """Set up an entity for this domain."""
-    device_connection = get_device_connection(
-        hass, entity_config[CONF_ADDRESS], config_entry
-    )
-
     if entity_config[CONF_DOMAIN_DATA][CONF_SOURCE] in chain(
         VARIABLES, SETPOINTS, THRESHOLDS, S0_INPUTS
     ):
-        return LcnVariableSensor(
-            entity_config, config_entry.entry_id, device_connection
-        )
+        return LcnVariableSensor(entity_config, config_entry)
     # in LED_PORTS + LOGICOP_PORTS
-    return LcnLedLogicSensor(entity_config, config_entry.entry_id, device_connection)
+    return LcnLedLogicSensor(entity_config, config_entry)
 
 
 async def async_setup_entry(
@@ -63,7 +56,7 @@ async def async_setup_entry(
     )
 
     async_add_entities(
-        create_lcn_sensor_entity(hass, entity_config, config_entry)
+        create_lcn_sensor_entity(entity_config, config_entry)
         for entity_config in config_entry.data[CONF_ENTITIES]
         if entity_config[CONF_DOMAIN] == DOMAIN_SENSOR
     )
@@ -72,11 +65,9 @@ async def async_setup_entry(
 class LcnVariableSensor(LcnEntity, SensorEntity):
     """Representation of a LCN sensor for variables."""
 
-    def __init__(
-        self, config: ConfigType, entry_id: str, device_connection: DeviceConnectionType
-    ) -> None:
+    def __init__(self, config: ConfigType, config_entry: ConfigEntry) -> None:
         """Initialize the LCN sensor."""
-        super().__init__(config, entry_id, device_connection)
+        super().__init__(config, config_entry)
 
         self.variable = pypck.lcn_defs.Var[config[CONF_DOMAIN_DATA][CONF_SOURCE]]
         self.unit = pypck.lcn_defs.VarUnit.parse(
@@ -111,11 +102,9 @@ class LcnVariableSensor(LcnEntity, SensorEntity):
 class LcnLedLogicSensor(LcnEntity, SensorEntity):
     """Representation of a LCN sensor for leds and logicops."""
 
-    def __init__(
-        self, config: ConfigType, entry_id: str, device_connection: DeviceConnectionType
-    ) -> None:
+    def __init__(self, config: ConfigType, config_entry: ConfigEntry) -> None:
         """Initialize the LCN sensor."""
-        super().__init__(config, entry_id, device_connection)
+        super().__init__(config, config_entry)
 
         if config[CONF_DOMAIN_DATA][CONF_SOURCE] in LED_PORTS:
             self.source = pypck.lcn_defs.LedPort[config[CONF_DOMAIN_DATA][CONF_SOURCE]]

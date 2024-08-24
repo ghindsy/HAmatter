@@ -26,7 +26,12 @@ from zwave_js_server.util.node import (
     async_set_config_parameter,
 )
 
-from homeassistant.const import ATTR_AREA_ID, ATTR_DEVICE_ID, ATTR_ENTITY_ID
+from homeassistant.const import (
+    ATTR_AREA_ID,
+    ATTR_DEVICE_ID,
+    ATTR_ENTITY_ID,
+    ATTR_LABEL_ID,
+)
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -40,6 +45,7 @@ from .helpers import (
     async_get_node_from_device_id,
     async_get_node_from_entity_id,
     async_get_nodes_from_area_id,
+    async_get_nodes_from_label_id,
     async_get_nodes_from_targets,
     get_value_id_from_unique_id,
 )
@@ -52,7 +58,12 @@ TARGET_VALIDATORS = {
     vol.Optional(ATTR_AREA_ID): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(ATTR_DEVICE_ID): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
+    vol.Optional(ATTR_LABEL_ID): vol.All(cv.ensure_list, [cv.string]),
 }
+
+HAS_AT_LEAST_ONE_TARGET = cv.has_at_least_one_key(
+    ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID, ATTR_LABEL_ID
+)
 
 
 def parameter_name_does_not_need_bitmask(
@@ -285,9 +296,7 @@ class ZWaveServices:
                             ConfigurationValueFormat
                         ),
                     },
-                    cv.has_at_least_one_key(
-                        ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                    ),
+                    HAS_AT_LEAST_ONE_TARGET,
                     cv.has_at_most_one_key(
                         const.ATTR_CONFIG_PARAMETER_BITMASK, const.ATTR_VALUE_SIZE
                     ),
@@ -317,9 +326,7 @@ class ZWaveServices:
                             },
                         ),
                     },
-                    cv.has_at_least_one_key(
-                        ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                    ),
+                    HAS_AT_LEAST_ONE_TARGET,
                     get_nodes_from_service_data,
                     has_at_least_one_node,
                 ),
@@ -363,9 +370,7 @@ class ZWaveServices:
                         vol.Optional(const.ATTR_WAIT_FOR_RESULT): cv.boolean,
                         vol.Optional(const.ATTR_OPTIONS): {cv.string: VALUE_SCHEMA},
                     },
-                    cv.has_at_least_one_key(
-                        ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                    ),
+                    HAS_AT_LEAST_ONE_TARGET,
                     get_nodes_from_service_data,
                     has_at_least_one_node,
                 ),
@@ -393,9 +398,7 @@ class ZWaveServices:
                         vol.Optional(const.ATTR_OPTIONS): {cv.string: VALUE_SCHEMA},
                     },
                     vol.Any(
-                        cv.has_at_least_one_key(
-                            ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                        ),
+                        HAS_AT_LEAST_ONE_TARGET,
                         broadcast_command,
                     ),
                     get_nodes_from_service_data,
@@ -411,9 +414,7 @@ class ZWaveServices:
             schema=vol.Schema(
                 vol.All(
                     TARGET_VALIDATORS,
-                    cv.has_at_least_one_key(
-                        ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                    ),
+                    HAS_AT_LEAST_ONE_TARGET,
                     get_nodes_from_service_data,
                     has_at_least_one_node,
                 ),
@@ -435,9 +436,7 @@ class ZWaveServices:
                         vol.Required(const.ATTR_METHOD_NAME): cv.string,
                         vol.Required(const.ATTR_PARAMETERS): list,
                     },
-                    cv.has_at_least_one_key(
-                        ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                    ),
+                    HAS_AT_LEAST_ONE_TARGET,
                     get_nodes_from_service_data,
                     has_at_least_one_node,
                 ),
@@ -457,9 +456,7 @@ class ZWaveServices:
                         ),
                         vol.Optional(const.ATTR_NOTIFICATION_EVENT): vol.Coerce(int),
                     },
-                    cv.has_at_least_one_key(
-                        ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_AREA_ID
-                    ),
+                    HAS_AT_LEAST_ONE_TARGET,
                     get_nodes_from_service_data,
                     has_at_least_one_node,
                 ),
@@ -778,6 +775,12 @@ class ZWaveServices:
                 _LOGGER.warning(err.args[0])
                 continue
             endpoints.add(node.endpoints[0])
+
+        for label_id in service.data.get(ATTR_LABEL_ID, []):
+            for node in async_get_nodes_from_label_id(
+                self._hass, label_id, self._ent_reg, self._dev_reg
+            ):
+                endpoints.add(node.endpoints[0])
 
         for entity_id in service.data.get(ATTR_ENTITY_ID, []):
             if (

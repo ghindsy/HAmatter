@@ -111,6 +111,11 @@ set_config_parameter:
           filter:
             - integration: zwave_js
           multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
+          multiple: true
     endpoint:
       example: 1
       default: 0
@@ -227,6 +232,11 @@ set_value:
           filter:
             - integration: zwave_js
           multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
+          multiple: true
     command_class:
       example: 117
       required: true
@@ -283,6 +293,11 @@ multicast_set_value:
         entity:
           filter:
             - integration: zwave_js
+          multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
           multiple: true
     broadcast:
       example: true
@@ -342,6 +357,11 @@ ping:
           filter:
             - integration: zwave_js
           multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
+          multiple: true
 
 reset_meter:
   fields:
@@ -368,6 +388,11 @@ reset_meter:
           filter:
             - integration: zwave_js
               domain: sensor
+          multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
           multiple: true
     meter_type:
       example: 1
@@ -402,6 +427,11 @@ invoke_cc_api:
         entity:
           filter:
             - integration: zwave_js
+          multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
           multiple: true
     command_class:
       example: 132
@@ -446,6 +476,11 @@ refresh_notifications:
         entity:
           filter:
             - integration: zwave_js
+          multiple: true
+    label_id:
+      example: battery_level
+      selector:
+        label:
           multiple: true
     notification_type:
       example: 1

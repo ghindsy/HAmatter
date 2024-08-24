@@ -7,7 +7,7 @@
         'door_id': 'door1',
         'index': 0,
         'lockup': 0,
-        'status': 'open',
+        'status': 'close',
       }),
       'door2': dict({
         'disabled': 0,

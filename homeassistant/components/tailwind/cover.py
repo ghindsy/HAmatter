@@ -60,6 +60,8 @@ class TailwindDoorCoverEntity(TailwindDoorEntity, CoverEntity):
         The Tailwind operating command will await the confirmation of the
         door being opened before returning.
         """
+        if not self.is_closed:
+            return
         self._attr_is_opening = True
         self.async_write_ha_state()
         try:
@@ -92,6 +94,8 @@ class TailwindDoorCoverEntity(TailwindDoorEntity, CoverEntity):
         The Tailwind operating command will await the confirmation of the
         door being closed before returning.
         """
+        if self.is_closed:
+            return
         self._attr_is_closing = True
         self.async_write_ha_state()
         try:

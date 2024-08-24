@@ -28,8 +28,8 @@ pytestmark = pytest.mark.usefixtures("init_integration")
 @pytest.mark.parametrize(
     "entity_id",
     [
-        "cover.door_1",
-        "cover.door_2",
+        "cover.door_1",  # status close
+        "cover.door_2",  # status open
     ],
 )
 async def test_cover_entities(
@@ -74,7 +74,7 @@ async def test_cover_operations(
         COVER_DOMAIN,
         SERVICE_CLOSE_COVER,
         {
-            ATTR_ENTITY_ID: "cover.door_1",
+            ATTR_ENTITY_ID: "cover.door_2",
         },
         blocking=True,
     )
@@ -82,6 +82,31 @@ async def test_cover_operations(
     mock_tailwind.operate.assert_called_with(
         door=ANY, operation=TailwindDoorOperationCommand.CLOSE
     )
+
+    # Test idempotent behavior
+    operate_calls = len(mock_tailwind.operate.mock_calls)
+    await hass.services.async_call(
+        COVER_DOMAIN,
+        SERVICE_OPEN_COVER,
+        {
+            ATTR_ENTITY_ID: "cover.door_2",
+        },
+        blocking=True,
+    )
+
+    assert len(mock_tailwind.operate.mock_calls) == operate_calls
+
+    operate_calls = len(mock_tailwind.operate.mock_calls)
+    await hass.services.async_call(
+        COVER_DOMAIN,
+        SERVICE_CLOSE_COVER,
+        {
+            ATTR_ENTITY_ID: "cover.door_1",
+        },
+        blocking=True,
+    )
+
+    assert len(mock_tailwind.operate.mock_calls) == operate_calls
 
     # Test door disabled error handling
     mock_tailwind.operate.side_effect = TailwindDoorDisabledError("Door disabled")
@@ -105,7 +130,7 @@ async def test_cover_operations(
             COVER_DOMAIN,
             SERVICE_CLOSE_COVER,
             {
-                ATTR_ENTITY_ID: "cover.door_1",
+                ATTR_ENTITY_ID: "cover.door_2",
             },
             blocking=True,
         )
@@ -136,7 +161,7 @@ async def test_cover_operations(
             COVER_DOMAIN,
             SERVICE_CLOSE_COVER,
             {
-                ATTR_ENTITY_ID: "cover.door_1",
+                ATTR_ENTITY_ID: "cover.door_2",
             },
             blocking=True,
         )
@@ -170,7 +195,7 @@ async def test_cover_operations(
             COVER_DOMAIN,
             SERVICE_CLOSE_COVER,
             {
-                ATTR_ENTITY_ID: "cover.door_1",
+                ATTR_ENTITY_ID: "cover.door_2",
             },
             blocking=True,
         )

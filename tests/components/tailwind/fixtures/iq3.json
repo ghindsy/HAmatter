@@ -10,7 +10,7 @@
   "data": {
     "door1": {
       "index": 0,
-      "status": "open",
+      "status": "close",
       "lockup": 0,
       "disabled": 0
     },

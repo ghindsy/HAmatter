@@ -14,6 +14,7 @@ from homeassistant.const import (
     CONCENTRATION_PARTS_PER_MILLION,
     LIGHT_LUX,
     PERCENTAGE,
+    POTENTIAL_OF_HYDROGEN,
     SIGNAL_STRENGTH_DECIBELS,
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     UnitOfApparentPower,
@@ -137,6 +138,12 @@ class SensorDeviceClass(StrEnum):
     """Carbon Dioxide gas concentration.
 
     Unit of measurement: `ppm` (parts per million)
+    """
+
+    CONCENTRATION = "concentration"
+    """Concentration.
+
+    Unit of measurement: `µg/m³` `mg/m³` `μg/ft³ `p/m³` `g/L` `ppm` `ppb`
     """
 
     CONDUCTIVITY = "conductivity"
@@ -368,6 +375,13 @@ class SensorDeviceClass(StrEnum):
     Unit of measurement: `°C`, `°F`, `K`
     """
 
+    TOTAL_DISSOLVED_SOLIDS = "tds"
+    """Total dissolved solids.
+
+    Unit of measurement: Concentrations
+    - `PPM`, `PPB`
+    """
+
     VOLATILE_ORGANIC_COMPOUNDS = "volatile_organic_compounds"
     """Amount of VOC.
 
@@ -554,7 +568,7 @@ DEVICE_CLASS_UNITS: dict[SensorDeviceClass, set[type[StrEnum] | str | None]] = {
     SensorDeviceClass.NITROGEN_MONOXIDE: {CONCENTRATION_MICROGRAMS_PER_CUBIC_METER},
     SensorDeviceClass.NITROUS_OXIDE: {CONCENTRATION_MICROGRAMS_PER_CUBIC_METER},
     SensorDeviceClass.OZONE: {CONCENTRATION_MICROGRAMS_PER_CUBIC_METER},
-    SensorDeviceClass.PH: {None},
+    SensorDeviceClass.PH: {POTENTIAL_OF_HYDROGEN},
     SensorDeviceClass.PM1: {CONCENTRATION_MICROGRAMS_PER_CUBIC_METER},
     SensorDeviceClass.PM10: {CONCENTRATION_MICROGRAMS_PER_CUBIC_METER},
     SensorDeviceClass.PM25: {CONCENTRATION_MICROGRAMS_PER_CUBIC_METER},

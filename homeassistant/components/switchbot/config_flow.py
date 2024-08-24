@@ -11,6 +11,7 @@ from switchbot import (
     SwitchbotApiError,
     SwitchbotAuthenticationError,
     SwitchbotLock,
+    SwitchbotModel,
     parse_advertisement_data,
 )
 import voluptuous as vol
@@ -38,8 +39,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     CONF_ENCRYPTION_KEY,
     CONF_KEY_ID,
+    CONF_LOCK_NIGHTLATCH,
     CONF_RETRY_COUNT,
     CONNECTABLE_SUPPORTED_MODEL_TYPES,
+    DEFAULT_LOCK_NIGHTLATCH,
     DEFAULT_RETRY_COUNT,
     DOMAIN,
     NON_CONNECTABLE_SUPPORTED_MODEL_TYPES,
@@ -355,7 +358,7 @@ class SwitchbotOptionsFlowHandler(OptionsFlow):
             # Update common entity options for all other entities.
             return self.async_create_entry(title="", data=user_input)
 
-        options = {
+        options: dict[vol.Optional, Any] = {
             vol.Optional(
                 CONF_RETRY_COUNT,
                 default=self.config_entry.options.get(
@@ -363,5 +366,16 @@ class SwitchbotOptionsFlowHandler(OptionsFlow):
                 ),
             ): int
         }
+        if self.config_entry.runtime_data.model == SwitchbotModel.LOCK_PRO:
+            options.update(
+                {
+                    vol.Optional(
+                        CONF_LOCK_NIGHTLATCH,
+                        default=self.config_entry.options.get(
+                            CONF_LOCK_NIGHTLATCH, DEFAULT_LOCK_NIGHTLATCH
+                        ),
+                    ): bool
+                }
+            )
 
         return self.async_show_form(step_id="init", data_schema=vol.Schema(options))

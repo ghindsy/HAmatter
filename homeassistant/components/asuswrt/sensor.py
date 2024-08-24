@@ -11,10 +11,12 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    PERCENTAGE,
     EntityCategory,
     UnitOfDataRate,
     UnitOfInformation,
     UnitOfTemperature,
+    UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -30,11 +32,26 @@ from .const import (
     KEY_SENSORS,
     SENSORS_BYTES,
     SENSORS_CONNECTED_DEVICE,
+    SENSORS_CPU,
     SENSORS_LOAD_AVG,
+    SENSORS_MEMORY,
     SENSORS_RATES,
     SENSORS_TEMPERATURES,
+    SENSORS_UPTIME,
 )
 from .router import AsusWrtRouter
+
+SENSORS_CPU_DEF = {
+    SENSORS_CPU[0]: "cpu_usage",
+    SENSORS_CPU[1]: "cpu_core1_usage",
+    SENSORS_CPU[2]: "cpu_core2_usage",
+    SENSORS_CPU[3]: "cpu_core3_usage",
+    SENSORS_CPU[4]: "cpu_core4_usage",
+    SENSORS_CPU[5]: "cpu_core5_usage",
+    SENSORS_CPU[6]: "cpu_core6_usage",
+    SENSORS_CPU[7]: "cpu_core7_usage",
+    SENSORS_CPU[8]: "cpu_core8_usage",
+}
 
 
 @dataclass(frozen=True)
@@ -46,6 +63,18 @@ class AsusWrtSensorEntityDescription(SensorEntityDescription):
 
 UNIT_DEVICES = "Devices"
 
+CPU_SENSORS: tuple[AsusWrtSensorEntityDescription, ...] = tuple(
+    AsusWrtSensorEntityDescription(
+        key=sens_key,
+        translation_key=transl_key,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=1,
+    )
+    for sens_key, transl_key in SENSORS_CPU_DEF.items()
+)
 CONNECTION_SENSORS: tuple[AsusWrtSensorEntityDescription, ...] = (
     AsusWrtSensorEntityDescription(
         key=SENSORS_CONNECTED_DEVICE[0],
@@ -167,6 +196,52 @@ CONNECTION_SENSORS: tuple[AsusWrtSensorEntityDescription, ...] = (
         entity_registry_enabled_default=False,
         suggested_display_precision=1,
     ),
+    AsusWrtSensorEntityDescription(
+        key=SENSORS_MEMORY[0],
+        translation_key="memory_usage",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=1,
+    ),
+    AsusWrtSensorEntityDescription(
+        key=SENSORS_MEMORY[1],
+        translation_key="memory_free",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=2,
+        factor=1024,
+    ),
+    AsusWrtSensorEntityDescription(
+        key=SENSORS_MEMORY[2],
+        translation_key="memory_used",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=2,
+        factor=1024,
+    ),
+    AsusWrtSensorEntityDescription(
+        key=SENSORS_UPTIME[0],
+        translation_key="last_boot",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    AsusWrtSensorEntityDescription(
+        key=SENSORS_UPTIME[1],
+        translation_key="uptime",
+        state_class=SensorStateClass.TOTAL,
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    *CPU_SENSORS,
 )
 
 

@@ -1,6 +1,12 @@
 {
   "entity": {
     "sensor": {
+      "ambient_humidity_status": {
+        "default": "mdi:information-outline"
+      },
+      "ambient_temperature_status": {
+        "default": "mdi:information-outline"
+      },
       "ups_status_display": {
         "default": "mdi:information-outline"
       },

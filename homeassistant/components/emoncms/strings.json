@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "url": "[%key:common::config_flow::data::url%]",
+          "api_key": "[%key:common::config_flow::data::api_key%]"
+        },
+        "data_description": {
+          "url": "Server url starting with the protocol (http or https)",
+          "api_key": "Your 32 bits api key"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "include_only_feed_id": "Choose feeds to include"
+        }
+      }
+    }
+  }
+}
